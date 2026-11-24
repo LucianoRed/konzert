@@ -215,6 +215,7 @@ playbooks it may run. When you do need code, an agent is one class on top of
 - [docs/building-an-agent.md](docs/building-an-agent.md): adding an agent
 - [docs/adr/](docs/adr): why things are the way they are
 - [docs/extraction-notes.md](docs/extraction-notes.md): the state of the repository after its first extraction, and what is next
+- [docs/releasing.md](docs/releasing.md): how a version is published
 - [SECURITY.md](SECURITY.md): known limitations, and how to report a problem
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md): how to contribute, for people and for coding agents
 

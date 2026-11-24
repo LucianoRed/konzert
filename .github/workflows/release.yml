@@ -1,0 +1,124 @@
+# Publishes the container images of a version to ghcr.io and creates the GitHub
+# release for it. Runs when a version tag is pushed, and at no other time.
+#
+# It only uses actions owned by GitHub, pinned to a commit, and the token that
+# GitHub issues for the run. There is no stored secret.
+#
+# How to cut a release, and what to do the first time: docs/releasing.md
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+# Nothing by default. The one job below asks for what it needs.
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  images:
+    name: Build, test and publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write  # create the release
+      packages: write  # push the images
+    env:
+      # Never interpolated into a script: a tag name is text someone chose.
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Refuse a tag that is not a version
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::not a version tag; expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-suffix"
+            exit 1
+          fi
+
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No dependency cache on purpose: a release is built from scratch.
+      - name: Set up Java
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Build and test
+        run: mvn -B -ntp verify
+
+      - name: Log in to ghcr.io
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
+
+      - name: Build and push the images
+        run: |
+          set -euo pipefail
+          # ghcr.io only accepts lower-case names.
+          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          source_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+
+          # image name, then the module it is built from
+          images=(
+            "konzert-maestro agents/maestro"
+            "konzert-worker agents/worker"
+            "konzert-sensor examples/incident-response/sensor"
+            "konzert-console examples/incident-response/console"
+            "konzert-mcp-ansible examples/incident-response/mcp-ansible"
+          )
+
+          : > images.txt
+          {
+            echo "### Images published for $TAG"
+            echo
+            echo '| Image | Reference by digest |'
+            echo '|---|---|'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for entry in "${images[@]}"; do
+            read -r image dir <<< "$entry"
+            ref="ghcr.io/$owner/$image"
+            echo "::group::$image"
+            docker build --pull \
+              --file "$dir/src/main/docker/Dockerfile.jvm" \
+              --label "org.opencontainers.image.title=$image" \
+              --label "org.opencontainers.image.source=$source_url" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --label "org.opencontainers.image.version=$TAG" \
+              --label "org.opencontainers.image.licenses=Apache-2.0" \
+              --tag "$ref:$TAG" \
+              "$dir"
+            docker push "$ref:$TAG"
+            # Ask the registry, not the local daemon, what it now holds.
+            digest="$(docker buildx imagetools inspect "$ref:$TAG" --format '{{.Manifest.Digest}}')"
+            if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::could not read the digest of $ref:$TAG"
+              exit 1
+            fi
+            echo "$ref@$digest" >> images.txt
+            echo "| \`$image\` | \`$ref@$digest\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::endgroup::"
+          done
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          flags=(--verify-tag --generate-notes --title "$TAG")
+          # A suffix such as -rc.1 marks a pre-release.
+          if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$TAG" images.txt "${flags[@]}"

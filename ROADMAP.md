@@ -16,9 +16,13 @@ promise or a date. Each item becomes an ADR before it becomes code.
 
 - Authentication and authorization on the Control Panel API.
 - Authentication on the example's panel.
-- Kafka authentication and per-agent ACLs (Strimzi `KafkaUser`), so that an
-  agent can only read and write what its role needs, and only the component
-  that represents people can write as `human`.
+- Kafka authentication and per-agent ACLs (Strimzi `KafkaUser`), so that only
+  an admitted agent connects, and it can only read and write what its role
+  needs.
+- Signed messages, verified by the intake filter before any rule, so that
+  nobody can speak as another agent or as `human`. An ACL cannot do this: it
+  controls who writes to a topic, not what a record says.
+  ([ADR-0011](docs/adr/0011-identity-on-the-bus.md))
 - Caller authentication on the MCP server, and an evaluation of putting an MCP
   gateway in front of tool servers.
 

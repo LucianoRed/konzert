@@ -180,7 +180,7 @@ packaging through Helm.
 | Intake filter: subscriptions, ordered rules, dedup, turn budget, concurrent-incident cap, call and token budgets | Triage lane, deterministic handlers and debounce: configurable, counted, not wired |
 | Funnel, per-message verdicts with reasons, dry run against real traffic | A web UI for the Control Panel: it is a REST API today |
 | Runtime configuration in ConfigMaps and Secrets, hot reload, seed and runtime layers | **Authentication** on the Control Panel API and on the example's panel |
-| Human approval as a message, matched deterministically | Kafka authentication and per-agent ACLs |
+| Human approval as a message, matched deterministically | Kafka authentication, per-agent ACLs and signed messages ([ADR-0011](docs/adr/0011-identity-on-the-bus.md)) |
 | Workers that can only run playbooks from a closed catalogue | An agent registry, several teams ("rooms"), an agent CRD and operator |
 | The incident-response example: sensor, three agents, Ansible MCP server, panel | Schema registry, an A2A edge adapter, an Ansible Automation Platform backend |
 

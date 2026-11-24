@@ -55,8 +55,12 @@ authenticating proxy.
 Approval is a message with `from: human`. Nothing proves who wrote it. The
 shipped Kafka configuration has a plaintext listener and no authentication, so
 any pod that can reach the brokers can publish an approval, a delegation, or a
-fact. Real use needs Kafka authentication and ACLs per agent, so that only the
-component that represents people may write as `human`. This is not implemented.
+fact. Real use needs Kafka authentication with a credential per agent, and
+signed messages, so that only the component that represents people can write as
+`human`. Authentication and ACLs alone do not give that: agents and people
+write to the same topic, and an ACL does not look inside a record. The design
+is in [ADR-0011](docs/adr/0011-identity-on-the-bus.md). None of it is
+implemented.
 
 ### The tool server does not authenticate its callers
 

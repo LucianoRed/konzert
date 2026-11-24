@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.konzert</groupId>
+  <artifactId>konzert</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+  <name>Konzert</name>
+  <description>Event-driven multi-agent framework for OpenShift</description>
+
+  <!--
+    An aggregator, not a parent: `mvn verify` here builds everything in order,
+    but every module keeps a self-contained pom. That is deliberate — the
+    OpenShift binary builds upload one module directory at a time, and a module
+    that needed its parent to resolve would not build there.
+  -->
+  <modules>
+    <module>core</module>
+    <module>agents/maestro</module>
+    <module>agents/worker</module>
+    <module>examples/minimal-agent</module>
+    <module>examples/incident-response/sensor</module>
+    <module>examples/incident-response/console</module>
+    <module>examples/incident-response/mcp-ansible</module>
+  </modules>
+</project>

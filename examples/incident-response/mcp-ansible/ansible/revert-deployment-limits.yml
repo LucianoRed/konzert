@@ -1,0 +1,65 @@
+---
+# Put a Deployment back the way it was before set-deployment-limits.yml, so the
+# demo can be run again for the next audience.
+#
+# Required: namespace, deployment
+# Optional: container
+- name: Remove resource limits from a Deployment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    container: ""
+
+  tasks:
+    - name: Read the Deployment
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ namespace }}"
+        name: "{{ deployment }}"
+      register: found
+
+    - name: Fail clearly when the Deployment does not exist
+      ansible.builtin.fail:
+        msg: "Deployment {{ deployment }} not found in namespace {{ namespace }}"
+      when: found.resources | length == 0
+
+    - name: Decide which container to reset
+      ansible.builtin.set_fact:
+        target_container: >-
+          {{ container if container | length > 0
+             else found.resources[0].spec.template.spec.containers[0].name }}
+
+    # index() is a list method, not a Jinja filter — and target_container has to
+    # be resolved by a previous task before it can be used here.
+    - name: Locate that container in the pod spec
+      ansible.builtin.set_fact:
+        container_index: >-
+          {{ (found.resources[0].spec.template.spec.containers
+              | map(attribute='name') | list).index(target_container) }}
+
+    # A strategic merge patch cannot delete a field — sending resources:{} leaves
+    # what is already there. Removing it takes a JSON patch.
+    - name: Remove the resources block
+      kubernetes.core.k8s_json_patch:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ namespace }}"
+        name: "{{ deployment }}"
+        patch:
+          - op: remove
+            path: "/spec/template/spec/containers/{{ container_index }}/resources"
+      register: reverted
+      failed_when:
+        - reverted.failed is defined
+        - reverted.failed
+        - "'Unable to remove' not in (reverted.msg | default(''))"
+
+    - name: Summarise for the agent
+      ansible.builtin.debug:
+        msg: >-
+          Resources removed from {{ namespace }}/{{ deployment }}
+          container {{ target_container }}. The workload is unbounded again —
+          which is the state the demo starts from.

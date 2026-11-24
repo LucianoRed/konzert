@@ -1,0 +1,98 @@
+---
+# Give a Deployment the resource limits it was shipped without, and prove the
+# rollout finished. This is Atlas's answer to "a workload is eating memory and
+# nobody bounded it".
+#
+# Required: namespace, deployment
+# Optional: memory_limit, memory_request, cpu_request, container
+- name: Apply resource limits to a Deployment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    memory_limit: "1Gi"
+    memory_request: "256Mi"
+    cpu_request: "50m"
+    container: ""
+
+  tasks:
+    - name: Require the caller to say what to patch
+      ansible.builtin.assert:
+        that:
+          - namespace | default('', true) | length > 0
+          - deployment | default('', true) | length > 0
+        fail_msg: "namespace and deployment are required"
+
+    - name: Read the Deployment
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ namespace }}"
+        name: "{{ deployment }}"
+      register: found
+
+    - name: Fail clearly when the Deployment does not exist
+      ansible.builtin.fail:
+        msg: "Deployment {{ deployment }} not found in namespace {{ namespace }}"
+      when: found.resources | length == 0
+
+    # Patch the container by name. Picking it explicitly (rather than by index)
+    # keeps the strategic merge patch correct on multi-container pods.
+    - name: Decide which container to patch
+      ansible.builtin.set_fact:
+        target_container: >-
+          {{ container if container | length > 0
+             else found.resources[0].spec.template.spec.containers[0].name }}
+
+    - name: Report what is there now
+      ansible.builtin.debug:
+        msg: >-
+          {{ deployment }}/{{ target_container }} currently declares:
+          {{ (found.resources[0].spec.template.spec.containers
+              | selectattr('name', 'equalto', target_container)
+              | map(attribute='resources') | list | first | default({}))
+             or 'no resources at all' }}
+
+    - name: Apply requests and limits
+      kubernetes.core.k8s:
+        state: patched
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ namespace }}"
+        name: "{{ deployment }}"
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: "{{ target_container }}"
+                    resources:
+                      requests:
+                        memory: "{{ memory_request }}"
+                        cpu: "{{ cpu_request }}"
+                      limits:
+                        memory: "{{ memory_limit }}"
+      register: patched
+
+    - name: Wait for the rollout to complete
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ namespace }}"
+        name: "{{ deployment }}"
+        wait: true
+        wait_condition:
+          type: Available
+          status: "True"
+        wait_timeout: 120
+      register: rolled
+
+    - name: Summarise for the agent
+      ansible.builtin.debug:
+        msg: >-
+          Applied requests(memory={{ memory_request }}, cpu={{ cpu_request }})
+          and limits(memory={{ memory_limit }}) to {{ namespace }}/{{ deployment }}
+          container {{ target_container }}.
+          Rollout complete: {{ rolled.resources[0].status.readyReplicas | default(0) }}
+          of {{ rolled.resources[0].spec.replicas }} replicas ready.

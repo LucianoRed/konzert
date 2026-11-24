@@ -1,0 +1,70 @@
+name: atlas
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/konzert-demo/konzert-worker
+
+kafka:
+  groupId: konzert-atlas
+
+mcp:
+  ansibleUrl: http://konzert-mcp-ansible:8080/mcp/sse
+
+agentConfig:
+  identity:
+    name: atlas
+    displayName: Atlas
+    emoji: "🛠️"
+    color: "#0ea5e9"
+    role: infrastructure
+    avatar: /avatars/atlas.svg
+    # soul: seeded from examples/incident-response/souls/atlas.md by hack/install.sh
+  model:
+    provider: openrouter
+    baseUrl: https://openrouter.ai/api/v1
+    model: deepseek/deepseek-v4-flash
+    triageModel: deepseek/deepseek-v4-flash
+    reasoningEffort: low
+    temperature: 0.2
+    maxTokens: 3000
+    timeoutSeconds: 60
+    fallbackText: "I could not think that through in time — holding position."
+  # propose = a mutating playbook waits for the operator's approval on the panel.
+  # Switch to act on the Control Panel (or here) for the fully autonomous run.
+  autonomy: propose
+  memory:
+    windowMessages: 16
+
+intake:
+  enabled: true
+  selfName: atlas
+  subscriptions:
+    - topic: konzert.conversation
+      types:
+        - io.konzert.MessagePosted
+  rules:
+    - name: addressed to me
+      when:
+        any:
+          - field: data.to
+            op: contains
+            value: atlas
+          - field: data.to
+            op: contains
+            value: all
+      then: reason
+    - name: everything else
+      then: count
+  dedup:
+    enabled: true
+    fingerprint: [type, data.from, data.text]
+    window: 5m
+    onDuplicate: count
+  debounce:
+    enabled: false
+  budget:
+    eventsPerMinute: 8
+    llmCallsPerHour: 80
+    tokensPerHour: 200000
+    onExceed: downgrade
+  turnBudget: 12
+  maxConcurrentIncidents: 1

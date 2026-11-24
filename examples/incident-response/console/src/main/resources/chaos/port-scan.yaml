@@ -1,0 +1,57 @@
+# Incident 2: a workload that starts behaving like an intruder.
+#
+# It sweeps TCP ports across the cluster service network and says so in its own
+# logs — which is the signal the sensor picks up. Nothing here exploits
+# anything: it opens connections and gives up. The point is the behaviour
+# pattern, not an attack.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-collector
+  namespace: ${NAMESPACE}
+  labels:
+    app: metrics-collector
+    konzert.io/example: "true"
+    konzert.io/chaos: "port-scan"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-collector
+  template:
+    metadata:
+      labels:
+        app: metrics-collector
+        konzert.io/example: "true"
+        konzert.io/chaos: "port-scan"
+    spec:
+      containers:
+        - name: metrics-collector
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          env:
+            - name: SCAN_BASE
+              value: "172.30.0"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "metrics-collector: starting discovery sweep"
+              while true; do
+                for host in $(seq 1 40); do
+                  for port in 22 23 80 443 3306 5432 6379 8080 8443 9092 9200 27017; do
+                    target="${SCAN_BASE}.${host}:${port}"
+                    if timeout 0.2 bash -c "echo > /dev/tcp/${SCAN_BASE}.${host}/${port}" 2>/dev/null; then
+                      echo "metrics-collector: port scan connect OPEN ${target}"
+                    else
+                      echo "metrics-collector: port scan connect refused ${target}"
+                    fi
+                  done
+                done
+                sleep 5
+              done
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi

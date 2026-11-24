@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The team — Konzert</title>
+<style>
+  :root {
+    --bg: #0b0f19; --panel: #111827; --panel2: #0e1421; --line: #223049; --text: #e6edf7;
+    --muted: #8ea3c3; --maestro: #7c3aed; --atlas: #0ea5e9; --sentinel: #059669;
+    --sensor: #f59e0b; --human: #e11d48; --console: #64748b; --ok: #22c55e; --bad: #ef4444; --bus: #f43f5e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; height: 100vh; }
+  header { padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; align-items: center; gap: 16px; }
+  h1 { font-size: 18px; margin: 0; } h1 span { color: var(--muted); font-weight: 400; }
+  header a { color: var(--muted); font-size: 14px; }
+  .grow { flex: 1; }
+  .status { color: var(--muted); font-size: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px; background: var(--console); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); } .dot.off { background: var(--bad); }
+  .stage { flex: 1; position: relative; min-height: 0; }
+  svg { width: 100%; height: 100%; display: block; }
+
+  /* nodes are HTML, positioned over the SVG in the same coordinate space */
+  .node { position: absolute; width: 250px; transform: translate(-50%, -50%); border: 2px solid var(--line); border-radius: 16px; background: var(--panel2); padding: 10px 12px; transition: box-shadow .3s, border-color .3s; }
+  .node.thinking { box-shadow: 0 0 0 4px rgba(124,58,237,.25), 0 0 30px rgba(124,58,237,.35); animation: pulse 1.2s ease-in-out infinite; }
+  .node.acting { box-shadow: 0 0 0 4px rgba(14,165,233,.25), 0 0 30px rgba(14,165,233,.35); }
+  .node.waiting { box-shadow: 0 0 0 4px rgba(225,29,72,.25), 0 0 30px rgba(225,29,72,.35); }
+  .node.hit { animation: hit .5s ease-out 1; }
+  @keyframes pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.03); } }
+  @keyframes hit { 0% { transform: translate(-50%,-50%) scale(1); } 40% { transform: translate(-50%,-50%) scale(1.06); } 100% { transform: translate(-50%,-50%) scale(1); } }
+  .node .top { display: flex; align-items: center; gap: 10px; }
+  .node img, .node .em { width: 44px; height: 44px; border-radius: 12px; background: #1c2740; display: grid; place-items: center; font-size: 24px; flex: none; }
+  .node .nm { font-weight: 700; font-size: 16px; }
+  .node .role { color: var(--muted); font-size: 12px; }
+  .node .state { margin-top: 6px; font-size: 13px; color: var(--muted); min-height: 18px; }
+  .node .state b { color: var(--text); font-weight: 600; }
+  .funnel { margin-top: 8px; display: grid; grid-template-columns: 62px 1fr 34px; gap: 4px 8px; font-size: 12px; color: var(--muted); align-items: center; }
+  .bar { height: 7px; border-radius: 4px; background: #1b2538; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--console); transition: width .6s; }
+  .bar.reason i { background: var(--maestro); }
+  .bar.tok i { background: var(--sensor); }
+  .small { font-size: 11px; color: var(--muted); }
+  .node.sm { width: 190px; }
+  .bubble { position: absolute; transform: translate(-50%, -110%); max-width: 300px; font-size: 13px; background: #1c2740; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; color: var(--text); opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .bubble.show { opacity: 1; }
+  .legend { position: absolute; left: 16px; bottom: 12px; font-size: 12px; color: var(--muted); display: flex; gap: 14px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .log { position: absolute; right: 16px; bottom: 12px; width: 420px; max-height: 190px; overflow: hidden; font-size: 12px; color: var(--muted); background: rgba(14,20,33,.85); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .log div { padding: 2px 0; border-bottom: 1px dashed #1b2538; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log b { color: var(--text); font-weight: 600; }
+  .log .adm { color: var(--ok); } .log .flt { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>The team <span>· every dot is a real message on Kafka</span></h1>
+  <div class="grow"></div>
+  <a href="/">💬 Situation Room ↗</a>
+  <div class="status"><span class="dot" id="busdot"></span><span id="busmsg">connecting…</span></div>
+</header>
+
+<div class="stage" id="stage">
+  <svg id="svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- the bus -->
+    <rect x="120" y="420" width="1360" height="60" rx="14" fill="#160d16" stroke="#7f1d1d" stroke-width="2"/>
+    <text x="140" y="457" fill="#f43f5e" font-size="20" font-weight="700">Kafka</text>
+    <text x="230" y="457" fill="#8ea3c3" font-size="15">konzert.events · konzert.conversation · konzert.actions</text>
+    <g id="wires" stroke="#223049" stroke-width="2" fill="none"></g>
+    <g id="particles"></g>
+  </svg>
+  <div id="nodes"></div>
+  <div class="legend">
+    <span><i style="background:var(--sensor)"></i>sensor</span>
+    <span><i style="background:var(--maestro)"></i>maestro</span>
+    <span><i style="background:var(--atlas)"></i>atlas</span>
+    <span><i style="background:var(--sentinel)"></i>sentinel</span>
+    <span><i style="background:var(--human)"></i>you</span>
+    <span><i style="background:#3b4a63"></i>filtered by intake (0 tokens)</span>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+// ---- the cast and where they stand (viewBox coordinates)
+const NODES = {
+  sensor:   { x: 330,  y: 190, emoji: '📡', color: '#f59e0b', label: 'Sensor',   role: 'no LLM · metrics and logs', small: true },
+  console:  { x: 800,  y: 190, emoji: '💣', color: '#64748b', label: 'Console',  role: 'chaos and the operator', small: true },
+  human:    { x: 1270, y: 190, emoji: '🧑', color: '#e11d48', label: 'You',      role: 'approves on the panel', small: true },
+  maestro:  { x: 330,  y: 690, avatar: '/avatars/maestro.svg',  color: '#7c3aed', label: 'Maestro',  role: 'dispatcher · Kafka only' },
+  atlas:    { x: 800,  y: 690, avatar: '/avatars/atlas.svg',    color: '#0ea5e9', label: 'Atlas',    role: 'infrastructure · Ansible via MCP' },
+  sentinel: { x: 1270, y: 690, avatar: '/avatars/sentinel.svg', color: '#059669', label: 'Sentinel', role: 'security · Ansible via MCP' }
+};
+const BUS_Y = 450;
+const LLM = ['maestro', 'atlas', 'sentinel'];
+const stage = document.getElementById('stage');
+const svg = document.getElementById('svg');
+const particles = document.getElementById('particles');
+const wires = document.getElementById('wires');
+const nodesEl = document.getElementById('nodes');
+const state = {};        // agent -> {thinking, waiting, acting, text}
+const roster = {};       // agent -> last /api/agents row
+const seenIds = new Set();
+let waitingFor = {};     // agent -> correlation with a plan awaiting approval
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ---- layout: HTML nodes follow the SVG viewBox scale
+function layout() {
+  const r = svg.getBoundingClientRect();
+  const scale = Math.min(r.width / 1600, r.height / 900);
+  const ox = (r.width - 1600 * scale) / 2, oy = (r.height - 900 * scale) / 2;
+  for (const [name, n] of Object.entries(NODES)) {
+    const el = document.getElementById('node-' + name);
+    if (!el) continue;
+    el.style.left = (ox + n.x * scale) + 'px';
+    el.style.top = (oy + n.y * scale) + 'px';
+    el.style.zoom = '';
+    const b = document.getElementById('bubble-' + name);
+    b.style.left = (ox + n.x * scale) + 'px';
+    b.style.top = (oy + (n.y - (n.small ? 42 : 70)) * scale) + 'px';
+  }
+}
+function buildNodes() {
+  for (const [name, n] of Object.entries(NODES)) {
+    const el = document.createElement('div');
+    el.className = 'node' + (n.small ? ' sm' : '');
+    el.id = 'node-' + name;
+    el.style.borderColor = n.color;
+    const pic = n.avatar ? '<img src="' + n.avatar + '" alt="">' : '<div class="em">' + n.emoji + '</div>';
+    el.innerHTML = '<div class="top">' + pic + '<div><div class="nm"><span class="dot" id="dot-' + name + '"></span>' + n.label + '</div><div class="role">' + n.role + '</div></div></div>' +
+      '<div class="state" id="state-' + name + '">' + (LLM.includes(name) ? 'listening to the bus' : '') + '</div>' +
+      (LLM.includes(name) ? '<div class="funnel">' +
+        '<span>seen</span><div class="bar"><i id="seen-' + name + '"></i></div><span id="seenN-' + name + '">0</span>' +
+        '<span>to model</span><div class="bar reason"><i id="reasoned-' + name + '"></i></div><span id="reasonedN-' + name + '">0</span>' +
+        '<span>tokens</span><div class="bar tok"><i id="tok-' + name + '"></i></div><span id="tokN-' + name + '">0</span>' +
+        '</div><div class="small" id="auto-' + name + '"></div>' : '');
+    nodesEl.appendChild(el);
+    const b = document.createElement('div');
+    b.className = 'bubble'; b.id = 'bubble-' + name;
+    nodesEl.appendChild(b);
+    // wire to the bus
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', 'M' + n.x + ' ' + n.y + ' L' + n.x + ' ' + BUS_Y);
+    p.setAttribute('stroke-dasharray', '4 6');
+    wires.appendChild(p);
+  }
+  layout();
+}
+
+// ---- particles: a message leaves its source, rides the bus, reaches each listener
+function fly(from, to, color, opts) {
+  const a = NODES[from], b = NODES[to];
+  if (!a || !b) return;
+  const path = 'M' + a.x + ' ' + a.y + ' L' + a.x + ' ' + BUS_Y + ' L' + b.x + ' ' + BUS_Y + ' L' + b.x + ' ' + b.y;
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  c.setAttribute('r', opts && opts.small ? 6 : 9);
+  c.setAttribute('fill', color);
+  c.setAttribute('filter', 'url(#glow)');
+  particles.appendChild(c);
+  const len = Math.abs(BUS_Y - a.y) + Math.abs(b.x - a.x) + Math.abs(b.y - BUS_Y);
+  const dur = Math.max(900, Math.min(2200, len * 1.4));
+  const t0 = performance.now();
+  const pts = [[a.x, a.y], [a.x, BUS_Y], [b.x, BUS_Y], [b.x, b.y]];
+  const segs = [Math.abs(BUS_Y - a.y), Math.abs(b.x - a.x), Math.abs(b.y - BUS_Y)];
+  function at(f) {
+    let d = f * len;
+    for (let i = 0; i < 3; i++) {
+      if (d <= segs[i] || i === 2) {
+        const k = segs[i] ? Math.min(1, d / segs[i]) : 1;
+        return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k];
+      }
+      d -= segs[i];
+    }
+  }
+  function step(now) {
+    const f = Math.min(1, (now - t0) / dur);
+    const [x, y] = at(f);
+    c.setAttribute('cx', x); c.setAttribute('cy', y);
+    if (f < 1) requestAnimationFrame(step);
+    else { c.remove(); if (opts && opts.onArrive) opts.onArrive(); }
+  }
+  requestAnimationFrame(step);
+}
+
+function arrive(agent, admitted, why) {
+  const el = document.getElementById('node-' + agent);
+  if (!el) return;
+  if (admitted) {
+    el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit');
+    if (LLM.includes(agent)) setState(agent, 'thinking', '🧠 <b>reasoning</b> (a real model call)');
+  } else {
+    // filtered: a grey dot bounces off and fades
+    const n = NODES[agent];
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', n.x); c.setAttribute('cy', n.y - 60); c.setAttribute('r', 7); c.setAttribute('fill', '#3b4a63');
+    particles.appendChild(c);
+    let t = 0;
+    (function fade() { t += 0.04; c.setAttribute('cy', n.y - 60 - t * 80); c.setAttribute('opacity', 1 - t); if (t < 1) requestAnimationFrame(fade); else c.remove(); })();
+    say(agent, 'filtered: ' + why, 1800);
+  }
+}
+function setState(agent, cls, html) {
+  const el = document.getElementById('node-' + agent);
+  el.classList.remove('thinking', 'acting', 'waiting');
+  if (cls) el.classList.add(cls);
+  document.getElementById('state-' + agent).innerHTML = html;
+}
+function say(agent, text, ms) {
+  const b = document.getElementById('bubble-' + agent);
+  b.textContent = text; b.classList.add('show');
+  clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('show'), ms || 4000);
+}
+function log(html, cls) {
+  const el = document.getElementById('log');
+  const d = document.createElement('div'); d.className = cls || ''; d.innerHTML = html;
+  el.prepend(d); while (el.children.length > 9) el.lastChild.remove();
+}
+
+// ---- who listens to what: mirrors the shipped intake rules, and is confirmed
+// by the agents' own verdicts (polled) when they arrive.
+function listeners(topic, type, d) {
+  const out = [];
+  const to = Array.isArray(d.to) ? d.to : [];
+  const from = d.from || '';
+  if (topic === 'konzert.events') {
+    out.push({ agent: 'maestro', admitted: type !== 'ProblemInjected', why: type === 'ProblemInjected' ? 'an injection is not a diagnosis (counted)' : '' });
+  } else if (topic === 'konzert.conversation') {
+    for (const a of LLM) {
+      if (a === from) continue;
+      const addressed = to.includes(a) || to.includes('all');
+      const adm = addressed && !(from !== 'human' && (d.intent === 'ack' || d.intent === 'observe'));
+      out.push({ agent: a, admitted: adm, why: !addressed ? 'not for ' + NODES[a].label + ' (counted)' : 'courtesy is not a decision' });
+    }
+    if (to.includes('human')) out.push({ agent: 'human', admitted: true });
+  }
+  return out;
+}
+
+function onEvent(item) {
+  const ev = item.event || {}; const d = ev.data || {};
+  if (ev.id && seenIds.has(ev.id)) return; if (ev.id) seenIds.add(ev.id);
+  const topic = item.topic; const type = (ev.type || '').split('.').pop();
+  if (type === 'PanelCleared') return;
+  let from = d.from || d.agent; if (!from || !NODES[from]) { from = (ev.source || '').includes('/sensor') ? 'sensor' : 'console'; }
+  const color = NODES[from] ? NODES[from].color : '#64748b';
+
+  // the speaker stops thinking
+  if (LLM.includes(from)) {
+    if (type === 'PlaybookExecuted') { setState(from, 'acting', '⚙️ <b>ran ' + esc(d.playbook) + '</b> → ' + esc(d.status)); say(from, 'Ansible: ' + d.playbook + ' (' + (d.stats ? 'ok=' + d.stats.ok + ' changed=' + d.stats.changed : d.status) + ')', 5000); }
+    else if (d.intent === 'ask' && d.plan) { setState(from, 'waiting', '✋ <b>waiting for your approval</b> · ' + esc(d.plan.playbook)); say(from, d.text, 8000); }
+    else { setState(from, '', 'listening to the bus'); if (d.text) say(from, d.text, 6000); }
+  }
+  if (from === 'human' && d.intent === 'answer') { for (const t of (d.to || [])) if (NODES[t]) setState(t, 'thinking', '✅ approved — <b>executing</b>'); }
+  if (from === 'sensor') say('sensor', type.replace('Detected', ' detected').replace('IncidentResolvedConfirmed', 'resolution confirmed') + (d.workload ? ' · ' + d.workload : ''), 5000);
+
+  const label = type === 'MessagePosted' ? (d.intent || 'msg') : type;
+  log('<b>' + esc(NODES[from].label) + '</b> → ' + esc((d.to || []).join(', ') || topic.split('.').pop()) + ' · ' + esc(label) + (d.text ? ' · ' + esc(d.text.slice(0, 80)) : ''));
+
+  for (const l of listeners(topic, type, d)) {
+    fly(from, l.agent, l.admitted ? color : '#3b4a63', { small: !l.admitted, onArrive: () => {
+      arrive(l.agent, l.admitted, l.why);
+      log('&nbsp;&nbsp;↳ ' + esc(NODES[l.agent].label) + ': ' + (l.admitted ? '<span class="adm">admitted → model</span>' : '<span class="flt">' + esc(l.why) + '</span>'), '');
+    } });
+  }
+  if (topic === 'konzert.actions') fly(from, 'console', color, { small: true });
+}
+
+// ---- the agents' own numbers
+async function poll() {
+  try {
+    const list = await (await fetch('/api/agents')).json();
+    let maxSeen = 1, maxTok = 1;
+    for (const a of list) { maxSeen = Math.max(maxSeen, a.seen || 0); maxTok = Math.max(maxTok, a.tokens || 0); }
+    for (const a of list) {
+      const name = a.name === 'mcp-ansible' ? null : a.name;
+      if (!name || !NODES[name]) continue;
+      document.getElementById('dot-' + name).className = 'dot ' + (a.ready ? 'on' : 'off');
+      if (!LLM.includes(name)) continue;
+      document.getElementById('seen-' + name).style.width = (100 * (a.seen || 0) / maxSeen) + '%';
+      document.getElementById('seenN-' + name).textContent = a.seen || 0;
+      document.getElementById('reasoned-' + name).style.width = (100 * (a.reasoned || 0) / maxSeen) + '%';
+      document.getElementById('reasonedN-' + name).textContent = a.reasoned || 0;
+      document.getElementById('tok-' + name).style.width = (100 * (a.tokens || 0) / maxTok) + '%';
+      document.getElementById('tokN-' + name).textContent = a.tokens >= 1000 ? (a.tokens / 1000).toFixed(1) + 'k' : (a.tokens || 0);
+      const open = (a.open || []).length;
+      document.getElementById('auto-' + name).textContent = 'autonomy: ' + (a.autonomy || '?') + ' · ' + open + ' open incident(s)' +
+        (a.seen ? ' · ' + Math.round(100 * (1 - (a.reasoned || 0) / a.seen)) + '% filtered' : '');
+    }
+  } catch (e) { /* numbers are decoration; the bus is the truth */ }
+}
+
+function bus(ok, msg) { document.getElementById('busdot').className = 'dot ' + (ok ? 'on' : 'off'); document.getElementById('busmsg').textContent = msg; }
+
+async function boot() {
+  buildNodes();
+  window.addEventListener('resize', layout);
+  try { const h = await (await fetch('/api/history')).json(); h.slice(-6).forEach(x => { if (x.event && x.event.id) seenIds.add(x.event.id); }); } catch (e) {}
+  const es = new EventSource('/api/stream');
+  es.onopen = () => bus(true, 'listening on Kafka');
+  es.onerror = () => bus(false, 'stream lost — reconnecting');
+  es.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch (e) {} };
+  poll(); setInterval(poll, 3000);
+}
+boot();
+</script>
+</body>
+</html>

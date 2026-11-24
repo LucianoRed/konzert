@@ -1,0 +1,36 @@
+name: konzert-mcp-ansible
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/konzert-demo/konzert-mcp-ansible
+  tag: latest
+  pullPolicy: Always
+
+# The namespace the playbooks are allowed to act on. This value drives BOTH the
+# Role below and the server's own check, so an agent asking for another
+# namespace is refused before ansible starts and would be refused by RBAC even
+# if it were not.
+demoNamespace: konzert-demo
+
+# local = run ansible-playbook inside this pod (default; no external dependency)
+# aap   = launch the equivalent Job Template on Ansible Automation Platform
+#         NOT IMPLEMENTED YET — see examples/incident-response/docs/install.md
+backend: local
+
+# Placeholders for the unimplemented aap backend. When it exists, the token
+# must come from a Secret — never from a values file committed to git.
+aap:
+  controllerUrl: ""
+  token: ""
+
+ansible:
+  timeoutSeconds: 240
+  # How much playbook output is handed back to the model. The panel gets the
+  # full text from the agent's konzert.actions event.
+  outputTailChars: 2500
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi

@@ -1,0 +1,23 @@
+name: konzert-sensor
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/konzert-demo/konzert-sensor
+  tag: latest
+  pullPolicy: Always
+
+demoNamespace: konzert-demo
+
+kafka:
+  bootstrap: konzert-kafka-kafka-bootstrap.kafka.svc:9092
+
+sensor:
+  memoryThresholdMb: 600
+  scanLinesThreshold: 15
+  confirmHoldSeconds: 30
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 512Mi

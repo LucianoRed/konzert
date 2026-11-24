@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      serviceAccountName: {{ .Values.name }}
+      containers:
+        - name: mcp-ansible
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: ANSIBLE_ALLOWED_NAMESPACES
+              value: {{ .Values.demoNamespace | quote }}
+            - name: ANSIBLE_TIMEOUT_SECONDS
+              value: {{ .Values.ansible.timeoutSeconds | quote }}
+            - name: ANSIBLE_OUTPUT_TAIL_CHARS
+              value: {{ .Values.ansible.outputTailChars | quote }}
+            - name: ANSIBLE_BACKEND
+              value: {{ .Values.backend | quote }}
+          volumeMounts:
+            # ansible writes temp files and needs a HOME; the image filesystem is
+            # read-only to the random UID that restricted-v2 assigns.
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  selector:
+    app: {{ .Values.name }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

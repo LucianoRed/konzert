@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Situation Room — Konzert</title>
+<style>
+  :root {
+    --bg: #0b0f19; --panel: #111827; --panel2: #0e1421; --line: #223049; --text: #e6edf7;
+    --muted: #8ea3c3; --maestro: #7c3aed; --atlas: #0ea5e9; --sentinel: #059669;
+    --sensor: #f59e0b; --human: #e11d48; --console: #64748b; --ok: #22c55e; --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+
+  /* ---------- header: title, roster, chaos buttons */
+  header {
+    padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .3px; white-space: nowrap; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  .roster { display: flex; gap: 10px; flex: 1; flex-wrap: wrap; }
+  .member {
+    display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 6px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); min-width: 150px;
+  }
+  .member img, .member .em { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-size: 18px; background: #1c2740; }
+  .member .nm { font-weight: 600; font-size: 13px; line-height: 1.2; }
+  .member .st { font-size: 11px; color: var(--muted); line-height: 1.2; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px; background: var(--console); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.off { background: var(--bad); }
+  .actions { display: flex; gap: 8px; }
+  button {
+    background: #1c2740; color: var(--text); border: 1px solid var(--line);
+    border-radius: 9px; padding: 8px 14px; cursor: pointer; font-size: 14px; font-weight: 600;
+  }
+  button:hover { background: #26344f; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.danger { border-color: #7f1d1d; background: #2a1416; }
+  button.danger:hover { background: #3b1b1f; }
+  button.ok { border-color: #14532d; background: #10261a; }
+  button.ok:hover { background: #163a25; }
+
+  /* ---------- body: conversation + sidebar */
+  .wrap { flex: 1; display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+  main { overflow-y: auto; padding: 18px 22px; scroll-behavior: smooth; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .box { border: 1px solid var(--line); border-radius: 12px; background: var(--panel2); padding: 12px 14px; }
+  .box h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; padding: 3px 0; border-bottom: 1px dashed #1b2538; }
+  .kv:last-child { border-bottom: 0; }
+  .kv b { font-weight: 600; }
+  .pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; vertical-align: middle; }
+  .pill.open { border-color: var(--sensor); color: var(--sensor); }
+  .pill.closed { border-color: var(--ok); color: var(--ok); }
+  .pill.wait { border-color: var(--human); color: var(--human); }
+  .ticker { font-size: 13px; color: var(--muted); }
+  .ticker div { padding: 4px 0; border-bottom: 1px dashed #1b2538; }
+  .ticker b { color: var(--sensor); font-weight: 600; }
+
+  /* ---------- the conversation */
+  .empty { color: var(--muted); text-align: center; margin-top: 18vh; }
+  .empty p { margin: 6px 0; }
+  .divider {
+    display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--muted); font-size: 13px;
+  }
+  .divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .divider.open { color: var(--sensor); }
+  .divider.closed { color: var(--ok); }
+  .msg { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
+  .msg .avatar {
+    width: 44px; height: 44px; border-radius: 12px; flex: none; overflow: hidden;
+    display: grid; place-items: center; font-size: 22px; background: #1c2740; border: 2px solid var(--console);
+  }
+  .msg .avatar img { width: 100%; height: 100%; display: block; }
+  .bubble {
+    flex: 1; min-width: 0; max-width: 980px; border: 1px solid var(--line); border-left-width: 4px;
+    border-radius: 12px; background: var(--panel2); padding: 10px 14px;
+  }
+  .bubble.tohuman { border-color: var(--human); background: #180d14; }
+  .who { font-weight: 700; font-size: 14px; letter-spacing: .3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .who .arrow { color: var(--muted); font-weight: 500; }
+  .who .to { font-weight: 600; }
+  .meta { color: var(--muted); font-size: 12px; font-weight: 400; margin-left: auto; }
+  .intent { font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .intent.delegate { color: var(--maestro); border-color: var(--maestro); }
+  .intent.ask { color: var(--human); border-color: var(--human); }
+  .intent.report, .intent.act { color: var(--atlas); border-color: var(--atlas); }
+  .intent.close { color: var(--ok); border-color: var(--ok); }
+  .text { margin-top: 5px; white-space: pre-wrap; word-wrap: break-word; font-size: 17px; }
+  .card { margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; background: #0a0f1a; padding: 8px 12px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; user-select: none; }
+  pre { margin: 8px 0 0; padding: 10px; background: #070b13; border-radius: 6px; overflow-x: auto; font-size: 12px; line-height: 1.45; color: #b9c9e2; max-height: 320px; }
+  .plan { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #b9c9e2; word-break: break-all; }
+  .approval { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .decided { color: var(--muted); font-size: 14px; }
+  .action { font-size: 14px; }
+  .action .stat { color: var(--muted); }
+  .action .stat b.ok { color: var(--ok); }
+  .action .stat b.bad { color: var(--bad); }
+
+  footer { border-top: 1px solid var(--line); background: var(--panel); padding: 12px 20px; display: flex; gap: 10px; }
+  input[type=text] { flex: 1; background: #0e1421; border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px; color: var(--text); font-size: 16px; }
+  input[type=text]:focus { outline: none; border-color: var(--maestro); }
+  .status { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  @media (max-width: 1100px) { .wrap { grid-template-columns: 1fr; } aside { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Situation Room <span>· Konzert</span></h1>
+  <div class="roster" id="roster"></div>
+  <div class="actions">
+    <a href="/team.html" style="align-self:center;color:var(--muted);font-size:14px;margin-right:6px">👥 team view ↗</a>
+    <button onclick="inject('memory-leak')">💣 Memory leak</button>
+    <button onclick="inject('port-scan')">💣 Port scan</button>
+    <button onclick="clearPanel(true)" title="hides what already happened; Kafka and the agents are not touched">🧹 Clear panel</button>
+    <button class="danger" onclick="revertAll()">⏹ Revert all</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <main id="feed">
+    <div class="empty" id="empty">
+      <p style="font-size:40px">📡</p>
+      <p>Waiting for something to go wrong.</p>
+      <p style="font-size:14px">Every line below is a real message on Kafka.</p>
+    </div>
+  </main>
+  <aside>
+    <div class="box">
+      <h2>Incident</h2>
+      <div id="incident" class="ticker"><div>none</div></div>
+    </div>
+    <div class="box">
+      <h2>Cluster · demo namespace</h2>
+      <div id="cluster" class="ticker"><div>…</div></div>
+    </div>
+    <div class="box">
+      <h2>Sensor</h2>
+      <div id="sensor" class="ticker"><div>silence is a healthy cluster</div></div>
+    </div>
+  </aside>
+</div>
+
+<footer>
+  <input type="text" id="chat" placeholder="Talk to Maestro… (e.g. why not just restart the pod?)"
+         onkeydown="if(event.key==='Enter') send()">
+  <button onclick="send()">Send</button>
+  <div class="status" style="align-self:center"><span class="dot" id="busdot"></span><span id="busmsg">connecting…</span></div>
+</footer>
+
+<script>
+const CAST = {
+  maestro:  { emoji: '🎼', color: 'var(--maestro)',  label: 'Maestro',  avatar: '/avatars/maestro.svg',  role: 'dispatcher' },
+  atlas:    { emoji: '🛠️', color: 'var(--atlas)',    label: 'Atlas',    avatar: '/avatars/atlas.svg',    role: 'infrastructure' },
+  sentinel: { emoji: '🛡️', color: 'var(--sentinel)', label: 'Sentinel', avatar: '/avatars/sentinel.svg', role: 'security' },
+  sensor:   { emoji: '📡', color: 'var(--sensor)',   label: 'Sensor',   role: 'no LLM' },
+  'mcp-ansible': { emoji: '📜', color: 'var(--console)', label: 'Ansible MCP', role: 'the hands' },
+  human:    { emoji: '🧑', color: 'var(--human)',    label: 'you' },
+  console:  { emoji: '💣', color: 'var(--console)',  label: 'console' }
+};
+const INTENT = { delegate: 'delegates', ask: 'asks', answer: 'answers', plan: 'plan', act: 'acts', report: 'reports', ack: 'ack', observe: 'observes', close: 'closes' };
+const feed = document.getElementById('feed');
+const EMPTY = document.getElementById('empty').outerHTML;
+const SENSOR_QUIET = document.getElementById('sensor').innerHTML;
+let lastCorrelation = null;
+const decisions = {};           // correlation|agent -> approved|denied
+const incidents = {};           // correlation -> {status, workload, type, opened, closed, turns, waiting}
+const seenIds = new Set();
+
+function who(ev) {
+  const from = ev?.data?.from || ev?.data?.agent;
+  if (from && CAST[from]) return from;
+  const src = ev?.source || '';
+  for (const name of Object.keys(CAST)) if (src.includes('/' + name)) return name;
+  return 'console';
+}
+function short(ts) { try { return new Date(ts).toLocaleTimeString(); } catch (e) { return ''; } }
+// Everything on the bus is untrusted text: a model, a log line or anyone who can
+// write to a topic chose it. Quotes are escaped too, because some values land
+// inside an attribute.
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function avatarEl(actor) {
+  const cast = CAST[actor];
+  const av = document.createElement('div');
+  av.className = 'avatar';
+  av.style.borderColor = cast.color;
+  if (cast.avatar) { const img = document.createElement('img'); img.src = cast.avatar; img.alt = cast.label; av.appendChild(img); }
+  else av.textContent = cast.emoji;
+  return av;
+}
+
+function divider(text, cls) {
+  const d = document.createElement('div');
+  d.className = 'divider ' + (cls || '');
+  d.textContent = text;
+  feed.appendChild(d);
+}
+
+function render(item) {
+  const ev = item.event || {};
+  // someone pressed "Clear panel" (here or in another browser): wipe the screen, keep listening
+  if ((ev.type || '').endsWith('PanelCleared')) { clearPanel(false); return; }
+  if (ev.id && seenIds.has(ev.id)) return;
+  if (ev.id) seenIds.add(ev.id);
+  document.getElementById('empty')?.remove();
+  const d = ev.data || {};
+  const actor = who(ev);
+  const cast = CAST[actor];
+  const type = (ev.type || '').split('.').pop();
+  const cid = ev.correlationid;
+  if (cid && actor !== 'console') lastCorrelation = cid;
+
+  // ---- incident bookkeeping and the sensor ticker
+  if (type.endsWith('Detected')) {
+    incidents[cid] = { status: 'open', workload: d.workload, type, opened: ev.time, turns: 0 };
+    divider('🚨 incident ' + cid + ' · ' + type + ' on ' + d.workload, 'open');
+    tick(ev, d, type);
+  }
+  if (type === 'IncidentResolvedConfirmed') tick(ev, d, type);
+  if (type === 'MessagePosted' && incidents[cid]) {
+    incidents[cid].turns++;
+    if (d.intent === 'ask' && d.plan) incidents[cid].waiting = actor;
+    if (d.intent === 'answer' && actor === 'human') incidents[cid].waiting = null;
+  }
+  if (actor === 'human' && d.intent === 'answer' && Array.isArray(d.to)) {
+    const v = /^(approved|aprov|sim|yes|ok|pode)/i.test(d.text || '') ? 'approved' : 'denied';
+    d.to.forEach(t => { decisions[cid + '|' + t] = v; });
+  }
+
+  // Sensor events live in the ticker, not in the chat; the injection is a note.
+  if (type === 'ProblemInjected') { divider('💣 ' + d.scenario + ' injected into ' + d.namespace + ' · the sensor still has to notice', ''); refreshIncident(); return; }
+  if (type.endsWith('Detected')) { refreshIncident(); return; }
+  if (type === 'IncidentResolvedConfirmed') {
+    divider('📡 sensor confirms: ' + (d.resolution || 'resolved'), 'closed');
+    refreshIncident(); return;
+  }
+
+  const row = document.createElement('div');
+  row.className = 'msg';
+  row.appendChild(avatarEl(actor));
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.style.borderLeftColor = cast.color;
+  const toHuman = Array.isArray(d.to) && d.to.includes('human');
+  if (toHuman && actor !== 'human') bubble.classList.add('tohuman');
+
+  const head = document.createElement('div');
+  head.className = 'who';
+  head.style.color = cast.color;
+  let h = esc(cast.label);
+  if (Array.isArray(d.to) && d.to.length) {
+    h += ' <span class="arrow">→</span> ' + d.to.map(t => '<span class="to" style="color:' + ((CAST[t] || CAST.console).color) + '">' + esc((CAST[t] || { label: t }).label) + '</span>').join(', ');
+  }
+  if (d.intent) h += ' <span class="intent ' + esc(d.intent) + '">' + esc(INTENT[d.intent] || d.intent) + '</span>';
+  if (type === 'PlaybookExecuted') h += ' <span class="intent act">playbook</span>';
+  if (d.approvedBy) h += ' <span class="intent">' + (d.approvedBy === 'human' ? 'approved by you' : 'autonomy: act') + '</span>';
+  h += '<span class="meta">' + esc(cid || '') + ' · ' + short(ev.time) + '</span>';
+  head.innerHTML = h;
+  bubble.appendChild(head);
+
+  if (type === 'PlaybookExecuted') {
+    const a = document.createElement('div');
+    a.className = 'text action';
+    const st = d.stats || {};
+    a.innerHTML = 'Ran <b>' + esc(d.playbook) + '</b> ' + esc(JSON.stringify(d.extraVars || {})) +
+      ' <span class="stat">→ <b class="' + (d.status === 'ok' ? 'ok' : 'bad') + '">' + esc(d.status) + '</b>' +
+      ' · ok=' + esc(st.ok ?? '?') + ' changed=' + esc(st.changed ?? '?') + ' failed=' + esc(st.failed ?? '?') +
+      (d.durationMs ? ' · ' + (d.durationMs / 1000).toFixed(1) + 's' : '') + '</span>';
+    bubble.appendChild(a);
+  } else {
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = d.text || (type + ' · ' + JSON.stringify(d).slice(0, 200));
+    bubble.appendChild(text);
+  }
+
+  if (d.reasoning) {
+    const det = document.createElement('details');
+    det.className = 'card';
+    const reasoning = String(d.reasoning);
+    det.innerHTML = '<summary>🧠 model reasoning (' + reasoning.length + ' characters)</summary><pre>' + esc(reasoning) + '</pre>';
+    bubble.appendChild(det);
+  }
+  if (d.output || d.outputTail) {
+    const det = document.createElement('details');
+    det.className = 'card';
+    det.innerHTML = '<summary>▸ Ansible output</summary><pre>' + esc(d.output || d.outputTail) + '</pre>';
+    bubble.appendChild(det);
+  }
+  if (d.context && d.context.evidence) {
+    const det = document.createElement('details');
+    det.className = 'card';
+    det.innerHTML = '<summary>▸ forwarded evidence</summary><pre>' + esc(JSON.stringify(d.context.evidence, null, 2)) + '</pre>';
+    bubble.appendChild(det);
+  }
+
+  // An agent asking the operator for permission: the answer is a Kafka message
+  // too, so the buttons just post it.
+  if (d.plan && d.intent === 'ask' && toHuman) {
+    const box = document.createElement('div');
+    box.className = 'approval';
+    const plan = document.createElement('span');
+    plan.className = 'plan';
+    plan.textContent = '▶ ' + d.plan.playbook + ' ' + JSON.stringify(d.plan.extraVars || {});
+    box.appendChild(plan);
+    const decided = decisions[cid + '|' + actor];
+    if (decided) {
+      const s = document.createElement('span');
+      s.className = 'decided';
+      s.textContent = decided === 'approved' ? '✅ approved by you' : '⛔ denied by you';
+      box.appendChild(s);
+    } else {
+      const ok = document.createElement('button'); ok.className = 'ok'; ok.textContent = '✅ Approve';
+      ok.onclick = () => decide(cid, actor, 'approved', box);
+      const no = document.createElement('button'); no.className = 'danger'; no.textContent = '⛔ Deny';
+      no.onclick = () => decide(cid, actor, 'denied', box);
+      box.appendChild(ok); box.appendChild(no);
+    }
+    bubble.appendChild(box);
+  }
+
+  row.appendChild(bubble);
+  feed.appendChild(row);
+  if (d.intent === 'close' && incidents[cid]) {
+    incidents[cid].status = 'closed'; incidents[cid].closed = ev.time; incidents[cid].waiting = null;
+    divider('✅ incident ' + cid + ' closed', 'closed');
+  }
+  refreshIncident();
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function tick(ev, d, type) {
+  const el = document.getElementById('sensor');
+  if (el.firstChild && el.firstChild.textContent.startsWith('silence')) el.innerHTML = '';
+  const row = document.createElement('div');
+  const evd = d.evidence || {};
+  let detail = '';
+  if (type === 'MemoryPressureDetected') detail = (evd.podMemoryMi || '?') + 'Mi, no limits' + (evd.trend ? ', ' + evd.trend : '');
+  else if (type === 'SuspiciousNetworkActivityDetected') detail = (evd.matchedLines || '?') + ' scan lines in ' + (evd.window || '');
+  else if (type === 'IncidentResolvedConfirmed') detail = d.resolution || '';
+  row.innerHTML = '<b>' + esc(type.replace('Detected', '').replace('IncidentResolvedConfirmed', 'Resolved ✓')) + '</b> ' + esc(d.workload || '') +
+    '<br><span style="font-size:12px">' + esc(detail) + ' · ' + short(ev.time) + '</span>';
+  el.prepend(row);
+  while (el.children.length > 8) el.lastChild.remove();
+}
+
+function refreshIncident() {
+  const el = document.getElementById('incident');
+  const ids = Object.keys(incidents);
+  if (!ids.length) { el.innerHTML = '<div>none</div>'; return; }
+  const cid = ids[ids.length - 1];
+  const inc = incidents[cid];
+  const secs = inc.closed ? Math.round((new Date(inc.closed) - new Date(inc.opened)) / 1000) : Math.round((Date.now() - new Date(inc.opened)) / 1000);
+  el.innerHTML =
+    '<div class="kv"><span>id</span><b>' + esc(cid) + '</b></div>' +
+    '<div class="kv"><span>state</span><b><span class="pill ' + (inc.status === 'open' ? 'open' : 'closed') + '">' + inc.status + '</span></b></div>' +
+    '<div class="kv"><span>workload</span><b>' + esc(inc.workload || '') + '</b></div>' +
+    '<div class="kv"><span>detected</span><b>' + esc(inc.type) + '</b></div>' +
+    '<div class="kv"><span>turns</span><b>' + inc.turns + '</b></div>' +
+    '<div class="kv"><span>duration</span><b>' + secs + 's</b></div>' +
+    (inc.waiting ? '<div class="kv"><span>waiting for</span><b><span class="pill wait">your approval · ' + esc(inc.waiting) + '</span></b></div>' : '');
+}
+
+async function roster() {
+  try {
+    const list = await (await fetch('/api/agents')).json();
+    const el = document.getElementById('roster');
+    el.innerHTML = '';
+    for (const a of list) {
+      const cast = CAST[a.name] || { emoji: '🤖', color: 'var(--console)', label: a.name };
+      const m = document.createElement('div');
+      m.className = 'member';
+      m.style.borderColor = a.ready ? cast.color : 'var(--bad)';
+      const pic = cast.avatar ? '<img src="' + cast.avatar + '" alt="">' : '<div class="em">' + cast.emoji + '</div>';
+      let st = a.ready ? (a.autonomy ? 'autonomy: ' + a.autonomy : 'ok') : 'down';
+      if (a.ready && a.seen !== undefined) st += ' · ' + a.reasoned + '/' + a.seen + ' to the model · ' + (a.tokens >= 1000 ? (a.tokens / 1000).toFixed(1) + 'k' : a.tokens) + ' tok';
+      m.innerHTML = pic + '<div><div class="nm"><span class="dot ' + (a.ready ? 'on' : 'off') + '"></span>' + esc(cast.label) +
+        (cast.role ? ' <span style="color:var(--muted);font-weight:400">· ' + cast.role + '</span>' : '') + '</div><div class="st">' + esc(st) + '</div></div>';
+      el.appendChild(m);
+    }
+  } catch (e) { /* the roster is decoration; the bus is the truth */ }
+}
+
+async function cluster() {
+  try {
+    const s = await (await fetch('/api/state')).json();
+    const el = document.getElementById('cluster');
+    const w = (s.workloads || []).map(x => '<div>⬢ ' + esc(x) + '</div>').join('') || '<div>no workloads</div>';
+    const p = (s.networkPolicies || []).map(x => '<div>🛡️ ' + esc(x) + '</div>').join('');
+    el.innerHTML = w + p;
+  } catch (e) { /* ignore */ }
+  refreshIncident();
+}
+
+function bus(ok, msg) {
+  document.getElementById('busdot').className = 'dot ' + (ok ? 'on' : 'off');
+  document.getElementById('busmsg').textContent = msg;
+}
+
+async function inject(scenario) {
+  bus(true, 'injecting ' + scenario + '…');
+  const r = await fetch('/api/inject/' + scenario, { method: 'POST' });
+  const j = await r.json();
+  bus(true, j.message || 'injected');
+  setTimeout(cluster, 1500);
+}
+// The screen forgets; the bus and the agents do not. An incident under way keeps
+// going and its next message lands on the clean panel.
+async function clearPanel(remote) {
+  if (remote) {
+    bus(true, 'clearing the panel…');
+    try { await fetch('/api/clear', { method: 'POST' }); } catch (e) { /* clear locally anyway */ }
+  }
+  feed.innerHTML = EMPTY;
+  for (const k of Object.keys(incidents)) delete incidents[k];
+  for (const k of Object.keys(decisions)) delete decisions[k];
+  lastCorrelation = null;
+  document.getElementById('sensor').innerHTML = SENSOR_QUIET;
+  refreshIncident();
+  if (remote) bus(true, 'panel cleared · Kafka and the agents are untouched');
+}
+async function revertAll() {
+  bus(true, 'reverting…');
+  const r = await fetch('/api/revert', { method: 'POST' });
+  const j = await r.json();
+  bus(true, j.message || 'reverted');
+  setTimeout(cluster, 1500);
+}
+async function decide(correlationId, agent, verdict, box) {
+  decisions[correlationId + '|' + agent] = verdict;
+  box.querySelectorAll('button').forEach(b => b.disabled = true);
+  await fetch('/api/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: verdict === 'approved' ? 'approved' : 'denied', to: agent, intent: 'answer', correlationId })
+  });
+}
+async function send() {
+  const input = document.getElementById('chat');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  await fetch('/api/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, correlationId: lastCorrelation })
+  });
+}
+
+async function boot() {
+  try {
+    const h = await (await fetch('/api/history')).json();
+    h.forEach(render);
+  } catch (e) { /* an empty bus is a fine starting point */ }
+  const es = new EventSource('/api/stream');
+  es.onopen = () => bus(true, 'listening on konzert.events · konzert.conversation · konzert.actions');
+  es.onerror = () => bus(false, 'stream lost — reconnecting');
+  es.onmessage = (m) => { try { render(JSON.parse(m.data)); } catch (e) {} };
+  roster(); cluster();
+  setInterval(roster, 5000);
+  setInterval(cluster, 7000);
+}
+boot();
+</script>
+</body>
+</html>

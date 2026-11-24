@@ -1,0 +1,104 @@
+name: maestro
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/konzert-demo/konzert-maestro
+
+kafka:
+  # Fixed: after a restart Maestro must not re-read the conversation and start
+  # answering messages it already answered.
+  groupId: konzert-maestro
+
+agentConfig:
+  identity:
+    name: maestro
+    displayName: Maestro
+    emoji: "🎼"
+    color: "#7c3aed"
+    role: dispatcher
+    avatar: /avatars/maestro.svg
+  model:
+    # Any OpenAI-compatible endpoint works (see docs/agent-control-panel.md).
+    provider: openrouter
+    baseUrl: https://openrouter.ai/api/v1
+    model: deepseek/deepseek-v4-flash
+    triageModel: deepseek/deepseek-v4-flash
+    reasoningEffort: low
+    temperature: 0.2
+    # Reasoning tokens come out of this budget before any content exists.
+    maxTokens: 3000
+    timeoutSeconds: 60
+    fallbackText: "I could not think that through in time — holding position."
+  autonomy: act
+  memory:
+    windowMessages: 12
+
+intake:
+  enabled: true
+  selfName: maestro
+  subscriptions:
+    - topic: konzert.events
+      types:
+        - io.konzert.MemoryPressureDetected
+        - io.konzert.SuspiciousNetworkActivityDetected
+        - io.konzert.IncidentResolvedConfirmed
+        - io.konzert.ProblemInjected
+    - topic: konzert.conversation
+      types:
+        - io.konzert.MessagePosted
+  rules:
+    # An injection is not a diagnosis. The sensor still has to notice on its
+    # own, so this is counted and never reasoned about — and the funnel shows
+    # the drop, which makes the point on stage.
+    - name: injections are not incidents
+      when:
+        field: type
+        op: endsWith
+        value: ProblemInjected
+      then: count
+    - name: addressed to me
+      when:
+        any:
+          - field: data.to
+            op: contains
+            value: maestro
+          - field: data.to
+            op: contains
+            value: all
+      then: reason
+    - name: sensor findings
+      when:
+        all:
+          - field: type
+            op: endsWith
+            value: Detected
+          - field: data.namespace
+            op: eq
+            value: konzert-demo
+      then: reason
+    - name: resolution confirmations
+      when:
+        field: type
+        op: endsWith
+        value: IncidentResolvedConfirmed
+      then: reason
+    - name: everything else
+      then: count
+  dedup:
+    enabled: true
+    # Sensor events dedup on what they are about; conversation turns carry no
+    # workload, so from+text keeps two different messages from collapsing into one.
+    fingerprint: [type, data.namespace, data.workload, data.from, data.text]
+    window: 5m
+    onDuplicate: count
+  debounce:
+    enabled: true
+    window: 10s
+    maxBatch: 5
+    groupBy: [data.workload]
+  budget:
+    eventsPerMinute: 6
+    llmCallsPerHour: 60
+    tokensPerHour: 150000
+    onExceed: downgrade
+  turnBudget: 12
+  maxConcurrentIncidents: 1

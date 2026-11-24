@@ -1,0 +1,68 @@
+# Values for deploy/helm/agent. Everything that makes this agent "Scribe" is in
+# this file and in soul.md — the image is generic.
+name: scribe
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/konzert-demo/konzert-minimal-agent
+
+kafka:
+  groupId: konzert-scribe
+
+agentConfig:
+  identity:
+    name: scribe
+    displayName: Scribe
+    emoji: "✍️"
+    color: "#d97706"
+    role: explainer
+    # soul: seeded with --set-file agentConfig.identity.soul=examples/minimal-agent/soul.md
+  systemPrompt: |
+    You are Scribe, a member of a team of software agents that collaborate over Kafka.
+    You answer questions from the human operator about what such a team does.
+    One to three sentences. No markdown.
+  model:
+    # Any OpenAI-compatible endpoint. The key is NOT here: it lives in the
+    # scribe-secrets Secret (key: llm-api-key).
+    provider: openrouter
+    baseUrl: https://openrouter.ai/api/v1
+    model: deepseek/deepseek-v4-flash
+    maxTokens: 1500
+    timeoutSeconds: 60
+    fallbackText: "I could not think that through in time."
+  # This agent has nothing to execute, so there is nothing to propose.
+  autonomy: act
+
+intake:
+  enabled: true
+  selfName: scribe
+  subscriptions:
+    - topic: konzert.conversation
+      types:
+        - io.konzert.MessagePosted
+  rules:
+    # Default deny: only a person, and only when they address this agent by
+    # name. Everything else on the topic is counted and costs nothing.
+    - name: a person talking to me
+      when:
+        all:
+          - field: data.from
+            op: eq
+            value: human
+          - field: data.to
+            op: contains
+            value: scribe
+      then: reason
+    - name: everything else
+      then: count
+  dedup:
+    enabled: true
+    fingerprint: [data.from, data.text]
+    window: 1m
+    onDuplicate: count
+  debounce:
+    enabled: false
+  budget:
+    eventsPerMinute: 6
+    llmCallsPerHour: 30
+    tokensPerHour: 50000
+    onExceed: drop

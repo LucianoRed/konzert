@@ -1,0 +1,24 @@
+name: konzert-console
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/konzert-demo/konzert-console
+  tag: latest
+  pullPolicy: Always
+
+demoNamespace: konzert-demo
+
+kafka:
+  bootstrap: konzert-kafka-kafka-bootstrap.kafka.svc:9092
+
+topics: "konzert.events,konzert.conversation,konzert.actions"
+
+route:
+  enabled: true
+  host: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi

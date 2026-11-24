@@ -1,0 +1,6 @@
+apiVersion: v2
+name: konzert-sensor
+description: The incident-response sensor — turns cluster reality into konzert.events, with no LLM
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

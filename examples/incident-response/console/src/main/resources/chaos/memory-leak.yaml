@@ -1,0 +1,57 @@
+# Incident 1: a workload that leaks, shipped without limits.
+#
+# The leak is bounded by the injector itself (LEAK_CEILING_MB): a demo must not
+# be able to take a node down. It grows fast enough to be visible on a projector
+# and then holds.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-generator
+  namespace: ${NAMESPACE}
+  labels:
+    app: report-generator
+    konzert.io/example: "true"
+    konzert.io/chaos: "memory-leak"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: report-generator
+  template:
+    metadata:
+      labels:
+        app: report-generator
+        konzert.io/example: "true"
+        konzert.io/chaos: "memory-leak"
+    spec:
+      containers:
+        - name: report-generator
+          image: registry.access.redhat.com/ubi9/python-311:latest
+          env:
+            - name: LEAK_CEILING_MB
+              value: "1600"
+            - name: LEAK_CHUNK_MB
+              value: "64"
+            - name: LEAK_INTERVAL_S
+              value: "3"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              exec python3 -u -c '
+              import os, time
+              ceiling = int(os.environ["LEAK_CEILING_MB"])
+              chunk   = int(os.environ["LEAK_CHUNK_MB"])
+              wait    = float(os.environ["LEAK_INTERVAL_S"])
+              held = []
+              print("report-generator: building monthly report", flush=True)
+              while sum(len(b) for b in held) // (1024*1024) < ceiling:
+                  held.append(bytearray(chunk * 1024 * 1024))
+                  mb = sum(len(b) for b in held) // (1024*1024)
+                  print(f"report-generator: cached {mb}MB of report data", flush=True)
+                  time.sleep(wait)
+              print("report-generator: cache warm, holding", flush=True)
+              while True:
+                  time.sleep(60)
+              '
+          # No resources block. That is the incident.

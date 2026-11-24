@@ -1,0 +1,6 @@
+apiVersion: v2
+name: konzert-mcp-ansible
+description: Ansible MCP server for the incident-response example — the only component allowed to change the cluster
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

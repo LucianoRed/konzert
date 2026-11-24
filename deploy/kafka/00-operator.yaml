@@ -1,0 +1,13 @@
+# Streams for Apache Kafka operator (Strimzi). If the cluster already has it,
+# this is a no-op and you can skip to 01-cluster.yaml.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: amq-streams
+  namespace: openshift-operators
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: amq-streams
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

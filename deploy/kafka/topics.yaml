@@ -1,0 +1,60 @@
+# The three Konzert topics.
+#
+#   konzert.events        facts detected by sensors (no LLM) -> orchestrator, console
+#   konzert.conversation  the visible agent dialogue, plus human chat and approvals
+#   konzert.actions       what agents actually executed, and the result (audit trail)
+#
+# Partitions: every record is keyed by its correlation ID, so one incident
+# always lands on one partition and is read by one replica of each agent role,
+# in order. That is what lets an agent role scale out as a consumer group.
+# Keep the partition count IDENTICAL on all three topics: the consumers use the
+# range assignor, which only keeps "the same incident on the same replica"
+# across topics when the topics are co-partitioned. See docs/scaling.md.
+#
+# Retention is short (1h) on purpose: a repeated demo starts on a clean panel,
+# and the intake dry-run only ever needs recent traffic. Raise it for real use.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: konzert.events
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: konzert-kafka
+    app: konzert
+spec:
+  partitions: 6
+  replicas: 1
+  config:
+    retention.ms: "3600000"
+    segment.ms: "600000"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: konzert.conversation
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: konzert-kafka
+    app: konzert
+spec:
+  # Ordering is guaranteed per incident (per key), not across incidents.
+  partitions: 6
+  replicas: 1
+  config:
+    retention.ms: "3600000"
+    segment.ms: "600000"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: konzert.actions
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: konzert-kafka
+    app: konzert
+spec:
+  partitions: 6
+  replicas: 1
+  config:
+    retention.ms: "3600000"
+    segment.ms: "600000"

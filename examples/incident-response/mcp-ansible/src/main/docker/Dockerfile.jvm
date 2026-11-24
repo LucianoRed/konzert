@@ -1,0 +1,44 @@
+# The Ansible MCP server: a Quarkus MCP server that happens to carry an Ansible
+# control node. Java so it follows the same pattern as the agents; ansible-core on top because the
+# remediation must be a real playbook run, not an API poke dressed up as one.
+FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24
+
+USER root
+
+# ansible-core is pure Python, so no compiler is needed. The kubernetes client
+# is what kubernetes.core modules talk to the API through; in a pod it picks up
+# the ServiceAccount token by itself.
+RUN microdnf install -y python3.11 python3.11-pip \
+ && microdnf clean all \
+ && python3.11 -m pip install --no-cache-dir --upgrade pip \
+ && python3.11 -m pip install --no-cache-dir "ansible-core>=2.16,<2.19" "kubernetes>=29,<32" \
+ && ansible-galaxy collection install kubernetes.core -p /opt/ansible/collections \
+ && chmod -R g=u /opt/ansible
+
+# restricted-v2 runs this container as a random UID with no writable home, and
+# ansible refuses to start if it cannot create its local temp dir. Pointing HOME
+# and both temp dirs at /tmp (an emptyDir at runtime) makes the image correct on
+# its own — not just when the server happens to override the environment.
+ENV LANGUAGE='en_US:en' \
+    PATH="/usr/local/bin:${PATH}" \
+    HOME=/tmp \
+    ANSIBLE_LOCAL_TEMP=/tmp/.ansible/tmp \
+    ANSIBLE_REMOTE_TEMP=/tmp/.ansible/tmp \
+    ANSIBLE_COLLECTIONS_PATH=/opt/ansible/collections \
+    ANSIBLE_PYTHON_INTERPRETER=/usr/bin/python3.11
+
+# The playbook catalogue is part of this image on purpose: an agent can only run
+# what shipped here, and what shipped here was reviewed (ADR-0006).
+COPY --chown=185:0 ansible/ /opt/ansible/playbooks/
+
+COPY --chown=185:0 target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185:0 target/quarkus-app/*.jar /deployments/
+COPY --chown=185:0 target/quarkus-app/app/ /deployments/app/
+COPY --chown=185:0 target/quarkus-app/quarkus/ /deployments/quarkus/
+
+EXPOSE 8080
+USER 185
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]

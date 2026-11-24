@@ -1,0 +1,47 @@
+# Generic values for one Konzert agent. Install the chart once per agent, each
+# with its own values file — see examples/incident-response/deploy/helm/ for
+# three working ones (maestro, atlas, sentinel).
+name: agent
+
+image:
+  # Where you pushed the agent image. The example's install script overrides
+  # this with the namespace it built into.
+  repository: image-registry.openshift-image-registry.svc:5000/konzert-demo/konzert-worker
+  tag: latest
+  pullPolicy: Always
+
+# Replicas of the SAME agent form one Kafka consumer group and split the
+# partitions between them. Keep 1 until you have read docs/scaling.md: the
+# per-incident state is still held in memory.
+replicas: 1
+
+kafka:
+  bootstrap: konzert-kafka-kafka-bootstrap.kafka.svc:9092
+  # One fixed group id per agent role. Empty means a random group on every
+  # start, which is right for an observer and wrong for an agent.
+  groupId: ""
+
+mcp:
+  ansibleUrl: ""
+
+# Extra environment variables, as a map: NAME: value.
+# Never put a credential here — keys belong in the <name>-secrets Secret.
+env: {}
+
+route:
+  # Exposes the agent's Control Panel API. That API has NO authentication of its
+  # own: leave this off, or put an authenticating proxy in front. See SECURITY.md.
+  enabled: false
+
+# Seeded into <name>-config. The agent NEVER writes this object: panel edits go
+# to <name>-config-runtime, so a helm upgrade cannot erase what was tuned at
+# runtime (ADR-0007).
+agentConfig: {}
+intake: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi

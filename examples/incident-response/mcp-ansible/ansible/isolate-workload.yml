@@ -1,0 +1,95 @@
+---
+# Quarantine a workload without deleting it: deny all ingress and all egress
+# except cluster DNS. Sentinel's answer to a pod that started scanning the
+# network — containment first, forensics still possible.
+#
+# Required: namespace, pod_selector_key, pod_selector_value
+# Optional: policy_name
+- name: Quarantine a workload with a NetworkPolicy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    policy_name: ""
+
+  tasks:
+    - name: Require a selector to isolate
+      ansible.builtin.assert:
+        that:
+          - namespace | default('', true) | length > 0
+          - pod_selector_key | default('', true) | length > 0
+          - pod_selector_value | default('', true) | length > 0
+        fail_msg: "namespace, pod_selector_key and pod_selector_value are required"
+
+    - name: Name the policy after what it quarantines
+      ansible.builtin.set_fact:
+        np_name: "{{ policy_name if policy_name | length > 0 else 'quarantine-' + pod_selector_value }}"
+        # A templated string cannot be used as a YAML key inside a module
+        # argument — it is passed through literally and the API rejects it.
+        # Building the selector as a dict here is the way to get a dynamic key.
+        quarantine_selector: "{{ {pod_selector_key: pod_selector_value} }}"
+
+    - name: Confirm the selector actually matches something
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ namespace }}"
+        label_selectors:
+          - "{{ pod_selector_key }}={{ pod_selector_value }}"
+      register: targets
+
+    - name: Refuse to write a policy that isolates nothing
+      ansible.builtin.fail:
+        msg: >-
+          No pod in {{ namespace }} matches {{ pod_selector_key }}={{ pod_selector_value }}.
+          Refusing to create a NetworkPolicy that would quarantine nothing.
+      when: targets.resources | length == 0
+
+    # Egress stays open to DNS only. Without this the pod cannot resolve names,
+    # which looks like isolation but breaks liveness probes and makes the
+    # quarantine hard to tell apart from a crash.
+    - name: Apply the quarantine policy
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          metadata:
+            name: "{{ np_name }}"
+            namespace: "{{ namespace }}"
+            labels:
+              konzert.io/quarantine: "true"
+            annotations:
+              konzert.io/reason: "isolated by the security agent"
+          spec:
+            podSelector:
+              matchLabels: "{{ quarantine_selector }}"
+            policyTypes:
+              - Ingress
+              - Egress
+            ingress: []
+            egress:
+              - to:
+                  - namespaceSelector:
+                      matchLabels:
+                        kubernetes.io/metadata.name: openshift-dns
+                ports:
+                  - protocol: UDP
+                    port: 5353
+                  - protocol: TCP
+                    port: 5353
+                  - protocol: UDP
+                    port: 53
+                  - protocol: TCP
+                    port: 53
+      register: applied
+
+    - name: Summarise for the agent
+      ansible.builtin.debug:
+        msg: >-
+          NetworkPolicy {{ np_name }} applied in {{ namespace }}:
+          {{ targets.resources | length }} pod(s) matching
+          {{ pod_selector_key }}={{ pod_selector_value }} now have all ingress and
+          all egress denied except cluster DNS. The workload is still running and
+          can be inspected.

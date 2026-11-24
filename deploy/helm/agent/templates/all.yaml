@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+---
+# The agent's ONLY Kubernetes rights: its own two runtime config objects.
+# It cannot read another agent's credentials and cannot touch a workload —
+# everything it does to the cluster goes through the Ansible MCP server.
+#
+# create/update are name-scoped. list/watch cannot be (Kubernetes does not allow
+# resourceNames on those verbs), which is why an agent must never share a
+# namespace with someone else's secrets.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.name }}-config
+  labels:
+    app: {{ .Values.name }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["{{ .Values.name }}-config-runtime"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["{{ .Values.name }}-secrets-runtime"]
+    verbs: ["create", "update", "patch", "delete"]
+  # create with no resourceName: the object does not exist the first time.
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.name }}-config
+  labels:
+    app: {{ .Values.name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.name }}-config
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.name }}
+---
+# Seeded configuration. Helm owns this one.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-config
+  labels:
+    app: {{ .Values.name }}
+    konzert.io/config: seed
+data:
+  agent-config.json: |
+{{ .Values.agentConfig | toPrettyJson | indent 4 }}
+  intake.json: |
+{{ .Values.intake | toPrettyJson | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  # Replicas of one agent share a Kafka consumer group: an incident is keyed by
+  # its correlation ID, so exactly one replica works on it. See docs/scaling.md.
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+      annotations:
+        # Restart when the seeded config changes, so a helm upgrade actually
+        # takes effect even for values the watch does not cover.
+        konzert.io/config-hash: {{ .Values.agentConfig | toJson | sha256sum | trunc 16 }}
+    spec:
+      serviceAccountName: {{ .Values.name }}
+      containers:
+        - name: agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: AGENT_NAME
+              value: {{ .Values.name | quote }}
+            - name: AGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KAFKA_BOOTSTRAP
+              value: {{ .Values.kafka.bootstrap | quote }}
+            {{- with .Values.kafka.groupId }}
+            - name: KAFKA_GROUP_ID
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.mcp.ansibleUrl }}
+            - name: MCP_ANSIBLE_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- range $name, $value := .Values.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  selector:
+    app: {{ .Values.name }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- if .Values.route.enabled }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  to:
+    kind: Service
+    name: {{ .Values.name }}
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

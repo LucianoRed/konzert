@@ -1,0 +1,48 @@
+# The workload the demo is about: a perfectly healthy service that someone
+# shipped without resource limits. Nothing is wrong with it today — that
+# omission is the latent bug the first incident exposes.
+#
+# It is also the innocent bystander of the second incident: Sentinel's
+# quarantine policy is namespace-scoped by label, so Atlas checks that this
+# workload is still healthy after the isolation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout-api
+  namespace: konzert-demo
+  labels:
+    app: checkout-api
+    konzert.io/example: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout-api
+  template:
+    metadata:
+      labels:
+        app: checkout-api
+        konzert.io/example: "true"
+    spec:
+      containers:
+        - name: checkout-api
+          image: registry.access.redhat.com/ubi9/httpd-24:latest
+          ports:
+            - containerPort: 8080
+          # No resources block. On purpose. Do not "fix" this in git — the
+          # demo's first incident is precisely that nobody did.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout-api
+  namespace: konzert-demo
+  labels:
+    app: checkout-api
+spec:
+  selector:
+    app: checkout-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -1,0 +1,60 @@
+---
+# Read-only diagnosis. Gives an agent the facts it needs before it decides to
+# change anything — and gives it a way to check its own work afterwards.
+#
+# Required: namespace, deployment
+- name: Describe a workload
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Read the Deployment
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ namespace }}"
+        name: "{{ deployment }}"
+      register: dep
+
+    - name: Fail clearly when the Deployment does not exist
+      ansible.builtin.fail:
+        msg: "Deployment {{ deployment }} not found in namespace {{ namespace }}"
+      when: dep.resources | length == 0
+
+    - name: Read its pods
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ namespace }}"
+        label_selectors: >-
+          {{ dep.resources[0].spec.selector.matchLabels
+             | dict2items | map(attribute='key') | zip(
+               dep.resources[0].spec.selector.matchLabels | dict2items | map(attribute='value'))
+             | map('join', '=') | list }}
+      register: pods
+
+    - name: Read any NetworkPolicy in the namespace
+      kubernetes.core.k8s_info:
+        api_version: networking.k8s.io/v1
+        kind: NetworkPolicy
+        namespace: "{{ namespace }}"
+      register: nps
+
+    - name: Report
+      ansible.builtin.debug:
+        msg:
+          deployment: "{{ namespace }}/{{ deployment }}"
+          replicas: "{{ dep.resources[0].status.readyReplicas | default(0) }}/{{ dep.resources[0].spec.replicas }}"
+          containers: >-
+            {{ dep.resources[0].spec.template.spec.containers
+               | map(attribute='name') | list }}
+          declared_resources: >-
+            {{ dep.resources[0].spec.template.spec.containers
+               | map(attribute='resources') | list }}
+          pods: >-
+            {{ pods.resources | map(attribute='metadata.name') | list }}
+          pod_phases: >-
+            {{ pods.resources | map(attribute='status.phase') | list }}
+          network_policies: >-
+            {{ nps.resources | map(attribute='metadata.name') | list }}

@@ -1,0 +1,31 @@
+# build output and local tooling
+target/
+.DS_Store
+*.iml
+.idea/
+.vscode/
+.quarkus/
+
+# The binary-build scripts copy a Dockerfile to the module root and remove it again.
+/agents/*/Dockerfile
+/examples/*/*/Dockerfile
+
+# Personal, per-clone notes for people and coding assistants. Never committed.
+CLAUDE.local.md
+*.local.md
+
+# Credentials must never be committed. An agent's key lives in a Kubernetes
+# Secret; these patterns are the safety net for local experiments.
+.env
+.env.*
+!.env.example
+credentials.json
+*.key
+*.pem
+*.p12
+*.jks
+kubeconfig
+*.kubeconfig
+values-secret*.yaml
+*-secrets.yaml
+*-secret.yaml

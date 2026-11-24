@@ -1,0 +1,56 @@
+---
+# Lift a quarantine. Without a policy_name it removes every quarantine policy in
+# the namespace, which is what the demo reset wants.
+#
+# Required: namespace
+# Optional: policy_name
+- name: Release a quarantined workload
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    policy_name: ""
+
+  tasks:
+    - name: Find the quarantine policies
+      kubernetes.core.k8s_info:
+        api_version: networking.k8s.io/v1
+        kind: NetworkPolicy
+        namespace: "{{ namespace }}"
+        label_selectors:
+          - "konzert.io/quarantine=true"
+      register: policies
+
+    # policy_name narrows the list above; it never widens it. A name that is not
+    # a quarantine policy is not deleted, so this playbook cannot be used to
+    # remove some other NetworkPolicy in the namespace.
+    - name: Narrow to one policy when asked
+      ansible.builtin.set_fact:
+        to_delete: >-
+          {{ policies.resources | map(attribute='metadata.name') | list
+             if policy_name | length == 0
+             else (policies.resources | map(attribute='metadata.name')
+                   | select('equalto', policy_name) | list) }}
+
+    - name: Say so when there was nothing to lift
+      ansible.builtin.debug:
+        msg: "No quarantine policy in {{ namespace }} — nothing to release."
+      when: to_delete | length == 0
+
+    - name: Delete them
+      kubernetes.core.k8s:
+        state: absent
+        api_version: networking.k8s.io/v1
+        kind: NetworkPolicy
+        namespace: "{{ namespace }}"
+        name: "{{ item }}"
+      loop: "{{ to_delete }}"
+      when: to_delete | length > 0
+
+    - name: Summarise for the agent
+      ansible.builtin.debug:
+        msg: >-
+          Released {{ to_delete | length }} quarantine policy(ies) in
+          {{ namespace }}: {{ to_delete | join(', ') }}
+      when: to_delete | length > 0

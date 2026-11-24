@@ -1,0 +1,320 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 692" role="img" aria-labelledby="kz-title kz-desc">
+  <title id="kz-title">Konzert: who talks to whom</title>
+  <desc id="kz-desc">A Kafka bus runs across the middle. Above it: a sensor that publishes facts, Maestro the dispatcher, and a human. Below it: the agents, with Atlas and Sentinel as two examples and room for your own. Every agent sits behind an intake filter. Agents reach your systems only through an MCP tool server, which holds the rights over them.</desc>
+
+  <!--
+    Hand-written, no generator. Three columns (x = 200, 500, 800) and one bus.
+    The picture is complete without the animation: the moving dots, the halos
+    and the caption at the bottom start invisible and are only shown by the
+    animation, so a renderer that does not animate shows a clean still.
+    The animation is one 20 second loop; every keyTime is a fraction of it.
+  -->
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+    .bg { fill: #ffffff; stroke: #d1d9e0; }
+    .t { fill: #1f2328; }
+    .m { fill: #59636e; }
+    .name { font-size: 17px; font-weight: 700; }
+    .role { font-size: 12.5px; }
+    .lbl { font-size: 12.5px; }
+    .card { fill: #ffffff; stroke-width: 2; }
+    .tile { fill: #f6f8fa; }
+    .pill { fill: #f6f8fa; stroke: #d1d9e0; }
+    .pilltext { fill: #59636e; font-size: 11.5px; }
+    .tag { fill: none; stroke: #afb8c1; }
+    .tagtext { fill: #59636e; font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px; }
+    .wire { fill: none; stroke: #8c959f; stroke-width: 1.6; stroke-dasharray: 3 5; }
+    .head { fill: #8c959f; }
+    .bus { fill: #fff1f2; stroke: #f43f5e; stroke-width: 2; }
+    .buslabel { fill: #e11d48; font-size: 20px; font-weight: 800; }
+    .chip { fill: #ffffff; stroke: #fecdd3; }
+    .chiptext { fill: #9f1239; font-size: 12px; }
+    .lane { stroke: #fda4af; stroke-width: 1.5; stroke-dasharray: 2 6; }
+    .group { fill: #f6f8fa; stroke: #afb8c1; stroke-width: 1.5; stroke-dasharray: 6 5; }
+    .grouplabel { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; }
+    .tool { fill: #ffffff; stroke: #57606a; stroke-width: 2; }
+    .sys { fill: #f6f8fa; stroke: #8c959f; stroke-width: 1.5; }
+    .yours { stroke: #8c959f; stroke-dasharray: 6 5; }
+    .sensor { stroke: #d97706; }
+    .maestro { stroke: #7c3aed; }
+    .atlas { stroke: #0ea5e9; }
+    .sentinel { stroke: #059669; }
+    .human { stroke: #e11d48; }
+    .glyph { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+    .halo { fill: none; stroke-width: 9; }
+    .caption { fill: #1f2328; font-size: 15px; }
+    .dropped { fill: #59636e; font-size: 12.5px; font-weight: 700; }
+    .d-sensor { fill: #d97706; }
+    .d-maestro { fill: #7c3aed; }
+    .d-atlas { fill: #0ea5e9; }
+    .d-human { fill: #e11d48; }
+    .d-tool { fill: #57606a; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; stroke: #3d444d; }
+      .t { fill: #f0f6fc; }
+      .m { fill: #9198a1; }
+      .card { fill: #151b23; }
+      .tile { fill: #212830; }
+      .pill { fill: #212830; stroke: #3d444d; }
+      .pilltext { fill: #9198a1; }
+      .tag { stroke: #656c76; }
+      .tagtext { fill: #9198a1; }
+      .wire { stroke: #656c76; }
+      .head { fill: #656c76; }
+      .bus { fill: #2a1218; }
+      .buslabel { fill: #fb7185; }
+      .chip { fill: #0d1117; stroke: #6b2331; }
+      .chiptext { fill: #fda4af; }
+      .lane { stroke: #7f2a3a; }
+      .group { fill: #10151c; stroke: #3d444d; }
+      .tool { fill: #151b23; stroke: #9198a1; }
+      .sys { fill: #212830; stroke: #656c76; }
+      .yours { stroke: #656c76; }
+      .sensor { stroke: #f59e0b; }
+      .caption { fill: #f0f6fc; }
+      .dropped { fill: #9198a1; }
+      .d-sensor { fill: #f59e0b; }
+      .d-tool { fill: #9198a1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .anim { display: none; }
+    }
+  </style>
+
+  <defs>
+    <marker id="kz-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="head" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+    <linearGradient id="kz-maestro" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#4c1d95"/>
+    </linearGradient>
+    <linearGradient id="kz-atlas" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/><stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+    <linearGradient id="kz-sentinel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#059669"/><stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+  </defs>
+
+  <rect class="bg" x="0.5" y="0.5" width="999" height="691" rx="14"/>
+
+  <!-- wires: everything reaches everything else through the bus, and only through it -->
+  <path class="wire" d="M200 114 V178" marker-end="url(#kz-arrow)"/>
+  <path class="wire" d="M500 126 V178" marker-start="url(#kz-arrow)" marker-end="url(#kz-arrow)"/>
+  <path class="wire" d="M800 116 V178" marker-start="url(#kz-arrow)" marker-end="url(#kz-arrow)"/>
+  <text class="lbl m" x="212" y="151">facts</text>
+  <text class="lbl m" x="512" y="156">delegates, answers, closes</text>
+  <text class="lbl m" x="812" y="151">chat and approvals</text>
+
+  <!-- the agents: a role, not a fixed cast -->
+  <rect class="group" x="40" y="290" width="920" height="158" rx="14"/>
+  <text class="grouplabel t" x="60" y="314">AGENTS</text>
+  <text class="lbl m" x="214" y="314">one worker image, each role is configuration</text>
+
+  <path class="wire" d="M200 246 V324" marker-start="url(#kz-arrow)" marker-end="url(#kz-arrow)"/>
+  <path class="wire" d="M500 246 V324" marker-start="url(#kz-arrow)" marker-end="url(#kz-arrow)"/>
+  <path class="wire" d="M800 246 V324" marker-start="url(#kz-arrow)" marker-end="url(#kz-arrow)"/>
+  <path class="wire" d="M200 430 V498" marker-end="url(#kz-arrow)"/>
+  <path class="wire" d="M500 430 V498" marker-end="url(#kz-arrow)"/>
+  <path class="wire" d="M800 430 V498" marker-end="url(#kz-arrow)"/>
+  <text class="lbl m" x="212" y="478">MCP</text>
+  <text class="lbl m" x="512" y="478">MCP</text>
+  <text class="lbl m" x="812" y="478">MCP</text>
+
+  <!-- halos: lit by the animation when a participant is reasoning, waiting or acting -->
+  <g class="anim">
+    <rect class="halo maestro" x="360" y="24" width="280" height="100" rx="12" opacity="0">
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite"
+               keyTimes="0;0.14;0.145;0.165;0.17;0.93;0.935;0.975;0.98;1" values="0;0;0.3;0.3;0;0;0.3;0.3;0;0"/>
+    </rect>
+    <rect class="halo atlas" x="70" y="326" width="260" height="104" rx="12" opacity="0">
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite"
+               keyTimes="0;0.28;0.285;0.335;0.34;0.66;0.665;0.685;0.69;1" values="0;0;0.3;0.3;0;0;0.3;0.3;0;0"/>
+    </rect>
+    <rect class="halo human" x="690" y="36" width="220" height="78" rx="12" opacity="0">
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite"
+               keyTimes="0;0.49;0.495;0.515;0.52;1" values="0;0;0.3;0.3;0;0"/>
+    </rect>
+    <rect class="halo atlas" x="340" y="590" width="320" height="44" rx="10" opacity="0">
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite"
+               keyTimes="0;0.76;0.765;0.795;0.8;1" values="0;0;0.3;0.3;0;0"/>
+    </rect>
+  </g>
+
+  <!-- Sensor -->
+  <rect class="card sensor" x="90" y="36" width="220" height="78" rx="12"/>
+  <rect class="tile" x="104" y="55" width="40" height="40" rx="10"/>
+  <g class="glyph sensor">
+    <path d="M116.5 76 a10.6 10.6 0 0 1 15 0"/>
+    <path d="M111.5 70.5 a17.7 17.7 0 0 1 25 0"/>
+    <circle cx="124" cy="84" r="2.6"/>
+  </g>
+  <text class="name t" x="156" y="67">Sensor</text>
+  <text class="role m" x="156" y="85">no model inside</text>
+  <text class="role m" x="156" y="101">signals in, facts out</text>
+
+  <!-- Maestro -->
+  <rect class="card maestro" x="360" y="24" width="280" height="100" rx="12"/>
+  <svg x="376" y="34" width="50" height="50" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="58" fill="url(#kz-maestro)"/>
+    <g fill="none" stroke="#ede9fe" stroke-width="3.5" stroke-linecap="round" opacity="0.95">
+      <path d="M60 62 C 60 40, 34 40, 30 30"/><path d="M60 62 C 60 34, 60 34, 60 22"/><path d="M60 62 C 60 40, 86 40, 90 30"/>
+    </g>
+    <g fill="#ede9fe"><circle cx="30" cy="28" r="7"/><circle cx="60" cy="20" r="7"/><circle cx="90" cy="28" r="7"/></g>
+    <line x1="46" y1="92" x2="80" y2="66" stroke="#fde68a" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="44" cy="94" r="6" fill="#fde68a"/>
+    <circle cx="60" cy="62" r="10" fill="#ede9fe"/><circle cx="60" cy="62" r="4.5" fill="#4c1d95"/>
+  </svg>
+  <text class="t" x="440" y="54" font-size="19" font-weight="800">Maestro</text>
+  <text class="role m" x="440" y="72">the dispatcher: it has no tools</text>
+  <text class="role m" x="440" y="88">triages, delegates, closes</text>
+  <rect class="pill" x="368" y="98" width="264" height="19" rx="6"/>
+  <text class="pilltext" x="500" y="111.5" text-anchor="middle">intake filter · default deny</text>
+
+  <!-- Human -->
+  <rect class="card human" x="690" y="36" width="220" height="78" rx="12"/>
+  <rect class="tile" x="704" y="55" width="40" height="40" rx="10"/>
+  <g class="glyph human">
+    <circle cx="724" cy="69" r="5.5"/>
+    <path d="M713 88 a11 10 0 0 1 22 0"/>
+  </g>
+  <text class="name t" x="756" y="67">Human</text>
+  <text class="role m" x="756" y="85">speaks on the same bus</text>
+  <text class="role m" x="756" y="101">approves what changes</text>
+
+  <!-- the bus -->
+  <rect class="bus" x="40" y="180" width="920" height="64" rx="12"/>
+  <text class="buslabel" x="62" y="210">Kafka</text>
+  <text class="lbl m" x="62" y="230">CloudEvents</text>
+  <rect class="chip" x="228" y="190" width="118" height="24" rx="12"/>
+  <text class="chiptext mono" x="287" y="206" text-anchor="middle">konzert.events</text>
+  <rect class="chip" x="528" y="190" width="162" height="24" rx="12"/>
+  <text class="chiptext mono" x="609" y="206" text-anchor="middle">konzert.conversation</text>
+  <rect class="chip" x="824" y="190" width="124" height="24" rx="12"/>
+  <text class="chiptext mono" x="886" y="206" text-anchor="middle">konzert.actions</text>
+  <path class="lane" d="M200 230 H800"/>
+
+  <!-- Atlas -->
+  <rect class="card atlas" x="70" y="326" width="260" height="104" rx="12"/>
+  <rect class="pill" x="78" y="333" width="244" height="19" rx="6"/>
+  <text class="pilltext" x="200" y="346.5" text-anchor="middle">intake filter · default deny</text>
+  <svg x="84" y="364" width="46" height="46" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="58" fill="url(#kz-atlas)"/>
+    <g fill="#e0f2fe"><rect x="38" y="26" width="44" height="14" rx="3"/><rect x="44" y="44" width="32" height="12" rx="3" opacity="0.85"/></g>
+    <path d="M30 64 L30 74 L90 74 L90 64" fill="none" stroke="#fbbf24" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M42 82 q18 -6 36 0 l6 18 q-24 8 -48 0 z" fill="#e0f2fe"/>
+    <circle cx="60" cy="84" r="6" fill="#075985"/>
+  </svg>
+  <text class="name t" x="142" y="383">Atlas</text>
+  <text class="role m" x="142" y="401">infrastructure</text>
+  <text class="role m" x="142" y="417">proposes, then acts</text>
+  <rect class="tag" x="252" y="369" width="66" height="19" rx="9.5"/>
+  <text class="tagtext" x="285" y="382.5" text-anchor="middle">EXAMPLE</text>
+
+  <!-- Sentinel -->
+  <rect class="card sentinel" x="370" y="326" width="260" height="104" rx="12"/>
+  <rect class="pill" x="378" y="333" width="244" height="19" rx="6"/>
+  <text class="pilltext" x="500" y="346.5" text-anchor="middle">intake filter · default deny</text>
+  <svg x="384" y="364" width="46" height="46" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="58" fill="url(#kz-sentinel)"/>
+    <path d="M60 20 L92 32 v26 c0 22 -14 34 -32 42 c-18 -8 -32 -20 -32 -42 V32 z" fill="#d1fae5" opacity="0.95"/>
+    <circle cx="60" cy="60" r="13" fill="#064e3b"/><circle cx="60" cy="60" r="5" fill="#fca5a5"/>
+    <g fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round">
+      <path d="M60 38 a22 22 0 0 1 22 22"/><path d="M82 60 a22 22 0 0 1 -22 22"/><path d="M60 82 a22 22 0 0 1 -22 -22"/>
+      <path d="M38 60 a22 22 0 0 1 12 -19.5" stroke-dasharray="3 5"/>
+    </g>
+  </svg>
+  <text class="name t" x="442" y="383">Sentinel</text>
+  <text class="role m" x="442" y="401">security</text>
+  <text class="role m" x="442" y="417">same image, other soul</text>
+  <rect class="tag" x="552" y="369" width="66" height="19" rx="9.5"/>
+  <text class="tagtext" x="585" y="382.5" text-anchor="middle">EXAMPLE</text>
+
+  <!-- your agent -->
+  <rect class="card yours" x="670" y="326" width="260" height="104" rx="12"/>
+  <rect class="pill" x="678" y="333" width="244" height="19" rx="6"/>
+  <text class="pilltext" x="800" y="346.5" text-anchor="middle">intake filter · default deny</text>
+  <circle class="tile" cx="707" cy="387" r="23"/>
+  <path class="glyph yours" d="M707 377 V397 M697 387 H717" style="stroke-dasharray: none"/>
+  <text class="name t" x="742" y="383">Your agent</text>
+  <text class="role m" x="742" y="401">a soul, a filter,</text>
+  <text class="role m" x="742" y="417">a list of playbooks</text>
+  <rect class="tag" x="860" y="369" width="58" height="19" rx="9.5"/>
+  <text class="tagtext" x="889" y="382.5" text-anchor="middle">YOURS</text>
+
+  <!-- the tool server: the rights over the systems are its own, not the agents' -->
+  <rect class="tool" x="70" y="500" width="860" height="58" rx="12"/>
+  <text class="name t" x="500" y="525" text-anchor="middle">MCP tool server</text>
+  <text class="role m" x="500" y="544" text-anchor="middle">holds the rights, offers a closed catalogue of actions</text>
+  <path class="wire" d="M500 558 V588" marker-end="url(#kz-arrow)"/>
+  <rect class="sys" x="340" y="590" width="320" height="44" rx="10"/>
+  <text class="t" x="500" y="617" text-anchor="middle" font-size="15" font-weight="700">Your systems</text>
+
+  <!-- one incident, told by the messages that carry it -->
+  <g class="anim">
+    <!-- 1. sensor to Maestro -->
+    <circle class="d-sensor" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.03;0.14;1" keyPoints="0;0;1;1" path="M200 114 V230 H500 V124"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.029;0.03;0.14;0.141;1" values="0;0;1;1;0;0"/>
+    </circle>
+    <!-- 2. Maestro to Atlas, admitted -->
+    <circle class="d-maestro" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.17;0.28;1" keyPoints="0;0;1;1" path="M500 124 V230 H200 V333"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.169;0.17;0.28;0.281;1" values="0;0;1;1;0;0"/>
+    </circle>
+    <!-- 2. the same message reaches Sentinel and stops at its filter -->
+    <circle class="d-maestro" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.17;0.215;1" keyPoints="0;0;1;1" path="M500 124 V333"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.169;0.17;0.215;0.24;1" values="0;0;1;1;0;0"/>
+    </circle>
+    <text class="dropped" x="514" y="314" opacity="0">dropped here: 0 tokens
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.215;0.22;0.31;0.315;1" values="0;0;1;1;0;0"/>
+    </text>
+    <!-- 3. Atlas to the human -->
+    <circle class="d-atlas" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.35;0.49;1" keyPoints="0;0;1;1" path="M200 326 V230 H800 V116"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.349;0.35;0.49;0.491;1" values="0;0;1;1;0;0"/>
+    </circle>
+    <!-- 4. the human answers -->
+    <circle class="d-human" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.52;0.66;1" keyPoints="0;0;1;1" path="M800 116 V230 H200 V333"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.519;0.52;0.66;0.661;1" values="0;0;1;1;0;0"/>
+    </circle>
+    <!-- 5. Atlas to the tool server, the tool server to the systems -->
+    <circle class="d-atlas" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.69;0.725;1" keyPoints="0;0;1;1" path="M200 430 V500"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.689;0.69;0.725;0.726;1" values="0;0;1;1;0;0"/>
+    </circle>
+    <circle class="d-tool" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.735;0.76;1" keyPoints="0;0;1;1" path="M500 558 V590"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.734;0.735;0.76;0.761;1" values="0;0;1;1;0;0"/>
+    </circle>
+    <!-- 6. Atlas reports, Maestro closes -->
+    <circle class="d-atlas" r="7" opacity="0">
+      <animateMotion dur="20s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.82;0.93;1" keyPoints="0;0;1;1" path="M200 326 V230 H500 V124"/>
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.819;0.82;0.93;0.931;1" values="0;0;1;1;0;0"/>
+    </circle>
+
+    <!-- the caption follows the dots -->
+    <text class="caption" x="500" y="666" text-anchor="middle" opacity="0">1 · A sensor publishes a fact. No model has been called yet.
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.015;0.025;0.145;0.155;1" values="0;0;1;1;0;0"/>
+    </text>
+    <text class="caption" x="500" y="666" text-anchor="middle" opacity="0">2 · Maestro delegates to Atlas. Sentinel hears it too, and its filter drops it.
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.165;0.175;0.325;0.335;1" values="0;0;1;1;0;0"/>
+    </text>
+    <text class="caption" x="500" y="666" text-anchor="middle" opacity="0">3 · Atlas proposes an action and asks a human to approve it.
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.345;0.355;0.495;0.505;1" values="0;0;1;1;0;0"/>
+    </text>
+    <text class="caption" x="500" y="666" text-anchor="middle" opacity="0">4 · The approval is a message on the same bus.
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.515;0.525;0.665;0.675;1" values="0;0;1;1;0;0"/>
+    </text>
+    <text class="caption" x="500" y="666" text-anchor="middle" opacity="0">5 · Atlas asks the tool server to run a playbook. The rights belong to the tool server.
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.685;0.695;0.795;0.805;1" values="0;0;1;1;0;0"/>
+    </text>
+    <text class="caption" x="500" y="666" text-anchor="middle" opacity="0">6 · Atlas reports what was done, and Maestro closes the incident.
+      <animate attributeName="opacity" dur="20s" repeatCount="indefinite" keyTimes="0;0.815;0.825;0.97;0.98;1" values="0;0;1;1;0;0"/>
+    </text>
+  </g>
+</svg>

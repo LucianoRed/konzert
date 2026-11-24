@@ -20,19 +20,13 @@ Most agent frameworks connect agents to each other with function calls or
 point-to-point protocols. Konzert connects them the way teams of services are
 connected: with a bus.
 
-```mermaid
-flowchart LR
-  sensor[📡 sensor<br/>no LLM] -- facts --> K[(Kafka)]
-  K -- intake filter --> M[🎼 dispatcher]
-  M -- delegates --> K
-  K -- intake filter --> A[🛠️ worker]
-  K -- intake filter --> B[🛡️ worker]
-  A & B -- MCP --> T[tool server<br/>holds the rights]
-  T --> X[(your systems)]
-  A & B -- what was done --> K
-  H[🧑 human] <-- chat and approvals --> K
-  K --> O[observers:<br/>panel, audit]
-```
+![Konzert: a Kafka bus in the middle. A sensor, Maestro the dispatcher and a human above it; the agents below it, each behind an intake filter, reaching your systems only through an MCP tool server.](docs/images/konzert-overview.svg)
+
+The structure has four parts: a **sensor** that states facts and contains no
+model, **Maestro** the dispatcher, the **agents** that each own a domain, and
+the **bus** that is the only thing connecting them. Atlas and Sentinel are two
+examples of the agent role, the same image with different configuration. The
+third box is yours.
 
 Four rules follow from that picture, and they are the framework:
 

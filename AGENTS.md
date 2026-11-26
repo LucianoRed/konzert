@@ -37,6 +37,45 @@ A change that breaks one of these is wrong, whatever else it achieves.
 9. **Documentation is part of the implementation**, and it does not claim what
    the code does not do.
 10. **Architectural decisions are recorded as ADRs** in [docs/adr/](docs/adr/).
+11. **Every change is checked for security twice** before it is proposed, as
+    described [below](#security-check-twice).
+
+## Security: check twice
+
+This repository is public, and what is in it ends up running with rights over
+real clusters. Every change gets two security checks before it is proposed.
+The pipeline is neither of them: it is the net for what both missed.
+
+If you are an AI coding agent, this is an instruction and not advice. Do both
+checks without being asked, and do not report a change as done before both are
+finished.
+
+**1. Your own pass.** Reread the change as someone trying to abuse it. In this
+codebase, ask at least:
+
+- Does text from the bus, a model, a log line or a person reach a shell, a
+  playbook variable, a template, HTML, or a decision to act, without being
+  validated? Everything on the bus is untrusted, including what another agent
+  wrote.
+- Does it widen what an agent, a tool server, a ServiceAccount or a workflow
+  token can do?
+- Does it open a way to act that skips the intake filter, the catalogue check
+  or the human approval?
+- Does it put a secret, a real hostname or personal data into a file, a log
+  line or an error message?
+- Does it add a dependency, an action, a base image or a download, and is that
+  pinned to something that cannot be moved?
+- Does it expose a port, a Route or an API with no authentication?
+
+Run a secret scanner over what you are about to commit as part of this pass.
+
+**2. An independent pass.** A second review that does not start from your
+conclusions: a separate agent or session that is given the change and what to
+defend against, and not your reasoning, or a person. Rereading your own work
+with the same context is the first pass again, not a second one.
+
+Then say in the change description what each pass covered, what it found, and
+what neither of them could check.
 
 ## Every agent has
 

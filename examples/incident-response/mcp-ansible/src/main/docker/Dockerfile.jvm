@@ -1,7 +1,9 @@
 # The Ansible MCP server: a Quarkus MCP server that happens to carry an Ansible
 # control node. Java so it follows the same pattern as the agents; ansible-core on top because the
 # remediation must be a real playbook run, not an API poke dressed up as one.
-FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24
+# Pinned by digest: the tag can be moved, the digest cannot. To take a newer
+# build of the base image, change the digest.
+FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24@sha256:408a999ab63b12697eb6d16d5c54b983733cb533309c5e861b0efa41d6d73693
 
 USER root
 

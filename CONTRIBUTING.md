@@ -22,6 +22,24 @@ An agent runs outside a cluster with `mvn quarkus:dev` in its module: the
 configuration store falls back to JSON files under `/tmp/agent-data`. It still
 needs a Kafka broker (`kafka.bootstrap`).
 
+## What a pull request is checked for
+
+Every pull request runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+- the build and the unit tests (`mvn verify`);
+- `helm lint` on the charts;
+- a scan of the whole history for secrets, not only of what the pull request
+  adds. If it flags something real, revoke the secret first; removing the
+  commit does not un-leak it. If it flags something that is not a secret, say
+  so in the pull request and a maintainer decides how to exclude it;
+- a review of the dependencies the pull request adds to a `pom.xml`, which
+  fails on a known vulnerability of moderate severity or worse. It does not see
+  what Maven resolves through the Quarkus BOM, the base images, or the Python
+  packages of the Ansible image.
+
+A pull request from a fork runs with a read-only token and no secrets. A
+maintainer may have to approve the run for a first-time contributor.
+
 ## What a change must include
 
 - **Tests** for logic that decides something: a filter stage, an approval, a
@@ -30,6 +48,10 @@ needs a Kafka broker (`kafka.bootstrap`).
   change alters behaviour, the page that describes that behaviour changes in
   the same pull request. If something is designed but not implemented, the
   documentation says so.
+- **Two security checks**, your own and an independent one, and a line in the
+  description saying what each covered. How, and what to look for, is in
+  [AGENTS.md](AGENTS.md#security-check-twice). The checks the pipeline runs do
+  not replace them.
 - **An ADR** for an architectural decision: a new component, a new dependency,
   a change to the message contract or to a security boundary. Copy the shape of
   an existing one in [docs/adr/](docs/adr/) and add it to the index.

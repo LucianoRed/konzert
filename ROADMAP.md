@@ -55,14 +55,22 @@ See [docs/scaling.md](docs/scaling.md).
 
 ## 6. A control plane on OpenShift
 
+The shape is proposed in
+[ADR-0012](docs/adr/0012-installation-operator-and-console.md): one manifest
+installs an operator and a console, and the rest is installed from the console,
+one thin slice at a time.
+
+- **Published images**, and an **install manifest** attached to each release
+  ([docs/releasing.md](docs/releasing.md)).
+- An **installation resource** and its wizard: Kafka, the topics and Maestro.
 - An **`Agent` custom resource** and an operator that reconciles it into what
   the Helm chart creates today.
 - **Admission by an administrator**: a new agent does not get its Deployment or
   its Kafka credentials until someone with the right to do so approves it. The
   approval is a Kubernetes object, so the audit log records who and when.
 - A **fleet view**: every agent, its autonomy, its funnel, its cost.
-- A **creation wizard** in the OpenShift console that produces the `Agent`
-  resource, and a web UI for each agent's Control Panel.
+- **Wizards** in the console for an agent and for a tool server, each
+  producing a resource, and a web UI for each agent's Control Panel.
 
 Before building this, evaluate delegating agent lifecycle and governance to an
 existing open-source control plane rather than writing another one

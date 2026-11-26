@@ -1,10 +1,24 @@
 # Publishes the container images of a version to ghcr.io and creates the GitHub
 # release for it. Runs when a version tag is pushed, and at no other time.
 #
+# Four jobs, each with only the rights its own work needs:
+#   guard    read-only   refuses a tag that is not a version, is not on the
+#                        default branch, or was already released
+#   build    read-only   runs the build and the tests, builds the images and
+#                        hands them over as a file. Everything that executes
+#                        third-party code (Maven plugins, pip, package
+#                        installs) runs here, where there is nothing to steal
+#   publish  packages    checks again that the version was not released,
+#                        loads that file and pushes it. No checkout, no build
+#   release  contents    creates the release
+#
 # It only uses actions owned by GitHub, pinned to a commit, and the token that
 # GitHub issues for the run. There is no stored secret.
 #
-# How to cut a release, and what to do the first time: docs/releasing.md
+# What this file cannot do: GitHub runs the copy of this workflow that is in
+# the tagged commit, so someone able to push a tag can push a different
+# workflow with it. Who may create a version tag is a repository setting.
+# See docs/releasing.md.
 name: release
 
 on:
@@ -12,7 +26,7 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
 
-# Nothing by default. The one job below asks for what it needs.
+# Nothing by default. Each job asks for what it needs.
 permissions: {}
 
 concurrency:
@@ -23,17 +37,18 @@ defaults:
   run:
     shell: bash
 
+env:
+  # Never interpolated into a script: a tag name is text someone chose.
+  TAG: ${{ github.ref_name }}
+  IMAGES: konzert-maestro konzert-worker konzert-sensor konzert-console konzert-mcp-ansible
+
 jobs:
-  images:
-    name: Build, test and publish
+  guard:
+    name: Check the tag
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 10
     permissions:
-      contents: write  # create the release
-      packages: write  # push the images
-    env:
-      # Never interpolated into a script: a tag name is text someone chose.
-      TAG: ${{ github.ref_name }}
+      contents: read
     steps:
       - name: Refuse a tag that is not a version
         run: |
@@ -42,12 +57,59 @@ jobs:
             exit 1
           fi
 
+      # A version is published once. Running this workflow again for a version
+      # that has a release would push new images over the ones the release
+      # lists. Only "not found" lets the run go on; any other answer stops it.
+      # The same check is repeated in the publish job, because re-running one
+      # job does not run this one again. It sees published releases only, not
+      # drafts: a deleted and re-created tag is a matter for the tag rule.
+      - name: Refuse a version that was already released
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
+          case "$code" in
+            404) echo "No release for $TAG yet." ;;
+            200) echo "::error::$TAG was already released. Publish a new version instead."; exit 1 ;;
+            *)   echo "::error::could not tell whether $TAG was released (HTTP $code)"; exit 1 ;;
+          esac
+
+      - name: Check out, with history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # What is released went through review and the checks on the default
+      # branch. A tag on any other commit is refused.
+      - name: Refuse a tag that is not on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "refs/remotes/origin/$DEFAULT_BRANCH"; then
+            echo "::error::the tagged commit is not on $DEFAULT_BRANCH"
+            exit 1
+          fi
+
+  build:
+    name: Build and test
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # No dependency cache on purpose: a release is built from scratch.
+      # No dependency cache on purpose.
       - name: Set up Java
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
@@ -57,39 +119,28 @@ jobs:
       - name: Build and test
         run: mvn -B -ntp verify
 
-      - name: Log in to ghcr.io
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REGISTRY_USER: ${{ github.actor }}
-        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
-
-      - name: Build and push the images
+      - name: Build the images
         run: |
           set -euo pipefail
           # ghcr.io only accepts lower-case names.
           owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
           source_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
 
-          # image name, then the module it is built from
-          images=(
-            "konzert-maestro agents/maestro"
-            "konzert-worker agents/worker"
-            "konzert-sensor examples/incident-response/sensor"
-            "konzert-console examples/incident-response/console"
-            "konzert-mcp-ansible examples/incident-response/mcp-ansible"
-          )
+          module_of() {
+            case "$1" in
+              konzert-maestro)     echo agents/maestro ;;
+              konzert-worker)      echo agents/worker ;;
+              konzert-sensor)      echo examples/incident-response/sensor ;;
+              konzert-console)     echo examples/incident-response/console ;;
+              konzert-mcp-ansible) echo examples/incident-response/mcp-ansible ;;
+              *) echo "::error::no module for image $1" >&2; return 1 ;;
+            esac
+          }
 
-          : > images.txt
-          {
-            echo "### Images published for $TAG"
-            echo
-            echo '| Image | Reference by digest |'
-            echo '|---|---|'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          for entry in "${images[@]}"; do
-            read -r image dir <<< "$entry"
-            ref="ghcr.io/$owner/$image"
+          refs=()
+          for image in $IMAGES; do
+            dir="$(module_of "$image")"
+            ref="ghcr.io/$owner/$image:$TAG"
             echo "::group::$image"
             docker build --pull \
               --file "$dir/src/main/docker/Dockerfile.jvm" \
@@ -98,9 +149,84 @@ jobs:
               --label "org.opencontainers.image.revision=$GITHUB_SHA" \
               --label "org.opencontainers.image.version=$TAG" \
               --label "org.opencontainers.image.licenses=Apache-2.0" \
-              --tag "$ref:$TAG" \
+              --tag "$ref" \
               "$dir"
-            docker push "$ref:$TAG"
+            echo "::endgroup::"
+            refs+=("$ref")
+          done
+          mkdir -p "$RUNNER_TEMP/handover"
+          docker save --output "$RUNNER_TEMP/handover/images.tar" "${refs[@]}"
+
+      - name: Hand the images to the publish job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: images
+          path: ${{ runner.temp }}/handover/images.tar
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish the images
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read   # ask whether the version was already released
+      packages: write  # push the images
+    steps:
+      # First, and again: this is the job that cannot be undone, and it can be
+      # re-run on its own long after the guard job passed.
+      - name: Refuse a version that was already released
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
+          case "$code" in
+            404) echo "No release for $TAG yet." ;;
+            200) echo "::error::$TAG was already released. Publish a new version instead."; exit 1 ;;
+            *)   echo "::error::could not tell whether $TAG was released (HTTP $code)"; exit 1 ;;
+          esac
+
+      - name: Fetch the images
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: images
+          path: ${{ runner.temp }}/handover
+
+      - name: Load, push, and record the digests
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          docker load --input "$RUNNER_TEMP/handover/images.tar"
+
+          # Every image must be there before the first one is pushed.
+          for image in $IMAGES; do
+            docker image inspect "ghcr.io/$owner/$image:$TAG" > /dev/null
+          done
+
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
+          trap 'docker logout ghcr.io > /dev/null 2>&1 || true' EXIT
+
+          for image in $IMAGES; do
+            docker push "ghcr.io/$owner/$image:$TAG"
+          done
+
+          : > images.txt
+          {
+            echo "### Images published for $TAG"
+            echo
+            echo '| Image | Reference by digest |'
+            echo '|---|---|'
+          } >> "$GITHUB_STEP_SUMMARY"
+          for image in $IMAGES; do
+            ref="ghcr.io/$owner/$image"
             # Ask the registry, not the local daemon, what it now holds.
             digest="$(docker buildx imagetools inspect "$ref:$TAG" --format '{{.Manifest.Digest}}')"
             if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -109,8 +235,28 @@ jobs:
             fi
             echo "$ref@$digest" >> images.txt
             echo "| \`$image\` | \`$ref@$digest\` |" >> "$GITHUB_STEP_SUMMARY"
-            echo "::endgroup::"
           done
+
+      - name: Hand the list of digests to the release job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digests
+          path: images.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Create the release
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch the list of digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: digests
 
       - name: Create the release
         env:
@@ -118,6 +264,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          if [[ "$(wc -l < images.txt)" -ne "$(wc -w <<< "$IMAGES")" ]]; then
+            echo "::error::images.txt does not list every image"
+            exit 1
+          fi
           flags=(--verify-tag --generate-notes --title "$TAG")
           # A suffix such as -rc.1 marks a pre-release.
           if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi

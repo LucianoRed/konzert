@@ -18,6 +18,14 @@ those four questions.
   each other and do not know each other's addresses. They publish to a bus and
   listen to it. A new agent is a new consumer group on the same topics, not a
   new integration with every agent that already exists.
+- **Built to scale out, the way Kafka consumers do.** Every role, Maestro
+  included, is a consumer group. Run more replicas of a role and Kafka splits
+  the partitions between them, so each incident is worked on by exactly one
+  replica, with no coordinator and no leader election. How many replicas a role
+  can have is set by the number of partitions, and there are rules the topics
+  must follow: [docs/scaling.md](docs/scaling.md). The mechanism is built;
+  running several replicas is still experimental, because what an agent knows
+  about an open incident lives in memory.
 - **Hearing everything without paying for everything.** Every agent hears the
   whole conversation, and a deterministic filter decides, at zero tokens, what
   reaches its model. Budgets for turns, calls and tokens are enforced in code,

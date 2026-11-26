@@ -1,4 +1,6 @@
-FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24
+# Pinned by digest: the tag can be moved, the digest cannot. To take a newer
+# build of the base image, change the digest.
+FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24@sha256:408a999ab63b12697eb6d16d5c54b983733cb533309c5e861b0efa41d6d73693
 
 ENV LANGUAGE='en_US:en'
 

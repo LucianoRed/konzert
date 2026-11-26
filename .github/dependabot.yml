@@ -1,0 +1,30 @@
+# Keeps pinned versions from going stale: the commits the workflows pin their
+# actions to, the Maven dependencies, and the digest of the base image.
+# Not covered: the Python packages and the Ansible collection that the
+# mcp-ansible image installs, and the scanner version in ci.yml.
+# Its pull requests go through the same checks as anyone else's.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directories:
+      - /agents/maestro/src/main/docker
+      - /agents/worker/src/main/docker
+      - /examples/minimal-agent/src/main/docker
+      - /examples/incident-response/sensor/src/main/docker
+      - /examples/incident-response/console/src/main/docker
+      - /examples/incident-response/mcp-ansible/src/main/docker
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

@@ -14,6 +14,10 @@ with zero tokens, what deserves a model call.
 group, so Kafka splits the topic's partitions between them, and each incident
 is handled by exactly one of them.
 
+The dispatcher is a role like any other. Maestro has its own consumer group and
+is installed with the same chart, so it takes replicas the same way, with the
+same limits described below.
+
 ```
                          konzert.conversation (6 partitions)
                     ┌──────┬──────┬──────┬──────┬──────┬──────┐

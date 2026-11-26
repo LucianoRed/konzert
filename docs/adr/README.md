@@ -20,3 +20,4 @@ was edited for this repository and states what is implemented today.
 - [ADR-0009](0009-konzert-scope-and-positioning.md) — Konzert as a standalone framework: scope and positioning
 - [ADR-0010](0010-scaling-model.md) — Scaling model: one consumer group per agent role
 - [ADR-0011](0011-identity-on-the-bus.md) — Identity on the bus: a credential per agent, and signed messages
+- [ADR-0012](0012-installation-operator-and-console.md) — Installing Konzert: one manifest, an operator, and a console that only writes resources (proposed)

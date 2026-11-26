@@ -38,6 +38,7 @@ a candidate cause if the example behaves differently from the original demo:
 | Everything compiles for and runs on Java 25 instead of 17 | every `pom.xml` and `Dockerfile.jvm` | the original demo ran on Java 17 images |
 | The panel escapes quotes, and escapes the playbook counters and the reasoning length | example console, `index.html` and `team.html` | a crafted message on the bus, or a model steered by a log line, could run script in the operator's browser, where approvals are given |
 | `release-workload.yml` with a `policy_name` deletes it only if it is a quarantine policy | example `mcp-ansible` | it deleted any NetworkPolicy of that name in the namespace |
+| Every Dockerfile names its base image by digest | every `Dockerfile.jvm` | a tag can be moved after a release was built from it |
 
 Added, not carried over: `examples/minimal-agent`, the unit test
 `ApprovalVerdictTest`, the root aggregator `pom.xml`, and most of the
@@ -99,8 +100,11 @@ documentation.
 ## Decisions waiting for the maintainer
 
 - **The namespace `io.konzert` and the label prefix `konzert.io/`.** They were
-  chosen without checking who owns the domain. Changing them is one global
-  replacement, cheap now and expensive after a release.
+  chosen without checking who owns the domain. A lookup on 2026-11-24 shows
+  `konzert.io` registered to someone else since 2024. Changing the names is one
+  global replacement, cheap now and expensive after a release, and it has to
+  happen before a custom resource makes the name a public interface
+  ([ADR-0012](adr/0012-installation-operator-and-console.md)).
 - **How to make the first commit.** Everything except the license is
   uncommitted. One initial commit, or one per area (core, agents, example,
   docs).
